@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ImobCRM</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans','Segoe UI',sans-serif;background:#070d1a;color:#f1f5f9;}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:#0f172a;}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:#6366f1;}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo, useEffect } = React;
+const { createClient } = supabase;
+
+// ── CONFIG ──
+const sb = createClient(
+  "https://fzemranxpvsblgacavbv.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6ZW1yYW54cHZzYmxnYWNhdmJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NDk1ODAsImV4cCI6MjA5NjUyNTU4MH0.JN1cAM49u2iRELu0Facgohm10CuLhmysNmD1VgT5V0w"
+);
+
+// ── CONSTANTES ──
+const EMPS=["Residencial Verona","Residencial Firenze","Sobrados","Residencial Milano","Residencial Veneza","Residencial Turin","Residencial Napoli"];
+const TIPOS=["Apartamento 1 quarto","Apartamento 2 quartos","Apartamento 3 quartos","Apartamento 4 quartos","Cobertura","Studio","Garden","Sobrado"];
+const CORRS=["Henrique","Carla","Kaluto","Vicenzo"];
+const ORIGENS=["Meta Ads","Google Ads","Site Próprio","Indicação","Instagram","Facebook","WhatsApp","Feirão","Evento","Corretor Parceiro","Outdoor","Outros"];
+const RENDAS=["Até R$ 3.000","R$ 3.001–R$ 5.000","R$ 5.001–R$ 8.000","R$ 8.001–R$ 12.000","R$ 12.001–R$ 20.000","Acima de R$ 20.000"];
+const ETAPAS=["Lead Recebido","Primeiro Contato","Atendimento","Interesse Confirmado","Proposta Enviada","Negociação","Reserva","Contrato","Venda Concluída"];
+const CIDADES=["Joinville","Florianópolis","Blumenau","Jaraguá do Sul","São Bento do Sul","Rio do Sul","Itajaí","Balneário Camboriú","Chapecó","Lages","Criciúma","Tubarão"];
+const CE={"Lead Recebido":"#6366f1","Primeiro Contato":"#8b5cf6","Atendimento":"#ec4899","Interesse Confirmado":"#f59e0b","Proposta Enviada":"#f97316","Negociação":"#ef4444","Reserva":"#14b8a6","Contrato":"#10b981","Venda Concluída":"#22c55e"};
+const USERS={"admin":"imob2024","henrique":"123456","carla":"123456","kaluto":"123456","vicenzo":"123456"};
+const NOMES={"admin":"Administrador","henrique":"Henrique","carla":"Carla","kaluto":"Kaluto","vicenzo":"Vicenzo"};
+
+// ── UTILS ──
+const fmt=n=>(n||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
+const hoje=()=>new Date().toLocaleDateString("pt-BR");
+const agora=()=>new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+const diasDesde=s=>{if(!s)return 0;try{const[d,m,a]=s.split("/").map(Number);return Math.max(0,Math.floor((Date.now()-new Date(a,m-1,d))/86400000));}catch{return 0;}};
+
+const calcScore=l=>{
+  let p=0;
+  const es={"Lead Recebido":0,"Primeiro Contato":5,"Atendimento":10,"Interesse Confirmado":15,"Proposta Enviada":25,"Negociação":32,"Reserva":38,"Contrato":40,"Venda Concluída":40};
+  p+=es[l.etapa]||0;
+  const rs={"Até R$ 3.000":5,"R$ 3.001–R$ 5.000":10,"R$ 5.001–R$ 8.000":14,"R$ 8.001–R$ 12.000":17,"R$ 12.001–R$ 20.000":19,"Acima de R$ 20.000":20};
+  p+=rs[l.faixa_renda]||0;
+  if(l.possui_entrada)p+=10; if(l.visitou)p+=10; if(l.responde_rapido)p+=10;
+  if(l.prazo_compra==="Imediato"||l.prazo_compra==="1-3 meses")p+=10;
+  else if(l.prazo_compra==="3-6 meses")p+=5;
+  return Math.min(100,p);
+};
+const getTemp=s=>s>=76?{l:"Muito Quente",c:"#ef4444",e:"🔥🔥"}:s>=51?{l:"Quente",c:"#f97316",e:"🔥"}:s>=26?{l:"Morno",c:"#f59e0b",e:"🌤"}:{l:"Frio",c:"#6366f1",e:"❄️"};
+
+// ── ICONS ──
+const Ico=({n,s=16,c="currentColor"})=>{
+  const d={
+    exec:"M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z",
+    leads:"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
+    kanban:"M3 3h5v18H3zM10 3h5v12h-5zM17 3h5v15h-5z",
+    chart:"M18 20V10M12 20V4M6 20v-6M2 20h20",
+    plus:"M12 5v14M5 12h14",
+    search:"M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z",
+    close:"M18 6L6 18M6 6l12 12",
+    check:"M20 6L9 17l-5-5",
+    fire:"M12 2s-5 6-5 10a5 5 0 0 0 10 0c0-4-5-10-5-10z",
+    target:"M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
+    map:"M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0zM12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+    build:"M3 21h18M9 21V5l7-2v18",
+    user:"M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
+    trend:"M23 6l-9.5 9.5-5-5L1 18M17 6h6v6",
+    dollar:"M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+    alert:"M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 8v4M12 16h.01",
+    clock:"M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 6v6l4 2",
+    eye:"M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+    edit:"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z",
+    trash:"M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6",
+    logout:"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
+    filter:"M22 3H2l8 9.46V19l4 2v-8.54L22 3z",
+    match:"M9 12l2 2 4-4M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z",
+  };
+  return <svg width={s} height={s} fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">{(d[n]||"").split("M").filter(Boolean).map((seg,i)=><path key={i} d={"M"+seg}/>)}</svg>;
+};
+
+// ── BASE COMPONENTS ──
+const Card=({children,style={}})=><div style={{background:"#0f172a",border:"1px solid #1e293b",borderRadius:16,padding:20,...style}}>{children}</div>;
+const Bdg=({text,color="#6366f1",sz=10})=><span style={{fontSize:sz,fontWeight:700,padding:"2px 8px",borderRadius:20,background:`${color}22`,color,border:`1px solid ${color}44`,whiteSpace:"nowrap",display:"inline-block"}}>{text}</span>;
+
+const KPI=({label,value,sub,icon,color="#6366f1"})=>(
+  <div style={{background:"linear-gradient(135deg,#0f172a,#1e1b4b)",border:`1px solid ${color}33`,borderRadius:16,padding:"16px 18px",boxShadow:`0 4px 20px ${color}11`,position:"relative",overflow:"hidden"}}>
+    <div style={{position:"absolute",top:-14,right:-14,width:60,height:60,borderRadius:"50%",background:`${color}11`}}/>
+    <div style={{background:`${color}22`,borderRadius:9,padding:6,display:"inline-flex",marginBottom:8}}><Ico n={icon} s={15} c={color}/></div>
+    <div style={{fontSize:22,fontWeight:800,color:"#f1f5f9"}}>{value}</div>
+    <div style={{fontSize:10,color:"#94a3b8",marginTop:1}}>{label}</div>
+    {sub&&<div style={{fontSize:9,color:color,marginTop:2,fontWeight:600}}>{sub}</div>}
+  </div>
+);
+
+const Modal=({children,onClose,title,width=600})=>(
+  <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.78)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={onClose}>
+    <div style={{background:"#0a0f1e",border:"1px solid #1e293b",borderRadius:20,width:"100%",maxWidth:width,maxHeight:"92vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 22px",borderBottom:"1px solid #1e293b",position:"sticky",top:0,background:"#0a0f1e",zIndex:1}}>
+        <h2 style={{color:"#f1f5f9",fontSize:15,fontWeight:700,margin:0}}>{title}</h2>
+        <button onClick={onClose} style={{background:"#1e293b",border:"none",borderRadius:8,padding:6,cursor:"pointer",display:"flex"}}><Ico n="close" s={14} c="#94a3b8"/></button>
+      </div>
+      <div style={{padding:22}}>{children}</div>
+    </div>
+  </div>
+);
+
+const SelF=({label,value,onChange,options,ph="Selecionar..."})=>(
+  <div style={{display:"flex",flexDirection:"column",gap:3}}>
+    {label&&<label style={{fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase"}}>{label}</label>}
+    <select value={value} onChange={e=>onChange(e.target.value)} style={{background:"#1e293b",border:"1px solid #334155",borderRadius:10,padding:"8px 11px",color:value?"#f1f5f9":"#64748b",fontSize:12,outline:"none",cursor:"pointer",width:"100%"}}>
+      <option value="">{ph}</option>
+      {options.map(o=><option key={o} value={o}>{o}</option>)}
+    </select>
+  </div>
+);
+
+const InpF=({label,value,onChange,type="text",ph=""})=>(
+  <div style={{display:"flex",flexDirection:"column",gap:3}}>
+    {label&&<label style={{fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase"}}>{label}</label>}
+    <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={ph}
+      style={{background:"#1e293b",border:"1px solid #334155",borderRadius:10,padding:"8px 11px",color:"#f1f5f9",fontSize:12,outline:"none",width:"100%",boxSizing:"border-box"}}/>
+  </div>
+);
+
+const ChkF=({label,value,onChange})=>(
+  <label style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer"}}>
+    <div onClick={()=>onChange(!value)} style={{width:16,height:16,borderRadius:4,border:"2px solid",borderColor:value?"#6366f1":"#334155",background:value?"#6366f1":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+      {value&&<Ico n="check" s={10} c="white"/>}
+    </div>
+    <span style={{fontSize:11,color:"#cbd5e1"}}>{label}</span>
+  </label>
+);
+
+const ScoreMeter=({sc,big=false})=>{
+  const t=getTemp(sc);
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:big?10:6}}>
+      <div style={{position:"relative",width:big?48:34,height:big?48:34}}>
+        <svg width={big?48:34} height={big?48:34} viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="15" fill="none" stroke="#1e293b" strokeWidth="4"/>
+          <circle cx="18" cy="18" r="15" fill="none" stroke={t.c} strokeWidth="4"
+            strokeDasharray={`${(sc/100)*94.2} 94.2`} strokeLinecap="round" transform="rotate(-90 18 18)"/>
+          <text x="18" y="22" textAnchor="middle" fontSize={big?9:7} fill={t.c} fontWeight="800">{sc}</text>
+        </svg>
+      </div>
+      <div>
+        <div style={{fontSize:big?14:11,fontWeight:700,color:t.c}}>{t.e} {t.l}</div>
+        {big&&<div style={{fontSize:10,color:"#64748b"}}>Score temperatura</div>}
+      </div>
+    </div>
+  );
+};
+
+const Funnel=({leads})=>{
+  const mx=leads.length||1;
+  const cs=["#6366f1","#8b5cf6","#a855f7","#ec4899","#f59e0b","#f97316","#ef4444","#14b8a6","#22c55e"];
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:5}}>
+      {ETAPAS.map((e,i)=>{
+        const v=leads.filter(l=>l.etapa===e).length;
+        const p=mx>0?Math.min((v/mx)*100,100):0;
+        return(
+          <div key={e} style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{width:145,fontSize:10,color:"#94a3b8",flexShrink:0,textAlign:"right"}}>{e}</span>
+            <div style={{flex:1,background:"#1e293b",borderRadius:5,height:16,overflow:"hidden"}}>
+              <div style={{width:`${p}%`,background:cs[i],height:"100%",borderRadius:5,display:"flex",alignItems:"center",paddingLeft:6,minWidth:v>0?20:0}}>
+                {v>0&&<span style={{fontSize:9,color:"white",fontWeight:700}}>{v}</span>}
+              </div>
+            </div>
+            <span style={{width:24,fontSize:10,color:"#475569",flexShrink:0}}>{v}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const Spinner=({msg="Carregando..."})=>(
+  <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:60,gap:14}}>
+    <div style={{width:36,height:36,border:"3px solid #1e293b",borderTop:"3px solid #6366f1",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+    <span style={{fontSize:12,color:"#64748b"}}>{msg}</span>
+  </div>
+);
+
+// ── LEAD FORM ──
+const LeadForm=({init={},onSave,onClose,saving})=>{
+  const df={nome:"",telefone:"",cidade:"",origem:"",empreendimento:"",tipo_imovel:"",faixa_valor:"",faixa_renda:"",corretor:"",observacoes:"",etapa:"Lead Recebido",possui_entrada:false,visitou:false,responde_rapido:false,prazo_compra:""};
+  const [f,setF]=useState({...df,...init});
+  const set=k=>v=>setF(p=>({...p,[k]:v}));
+  const sc=calcScore(f); const t=getTemp(sc);
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{background:`${t.c}11`,border:`1px solid ${t.c}33`,borderRadius:10,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontSize:11,color:"#94a3b8"}}>Temperatura estimada:</span>
+        <ScoreMeter sc={sc}/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <InpF label="Nome Completo *" value={f.nome} onChange={set("nome")}/>
+        <InpF label="Telefone / WhatsApp *" value={f.telefone} onChange={set("telefone")}/>
+        <SelF label="Cidade" value={f.cidade} onChange={set("cidade")} options={CIDADES}/>
+        <SelF label="Origem do Lead *" value={f.origem} onChange={set("origem")} options={ORIGENS}/>
+        <SelF label="Empreendimento" value={f.empreendimento} onChange={set("empreendimento")} options={EMPS}/>
+        <SelF label="Tipo de Imóvel" value={f.tipo_imovel} onChange={set("tipo_imovel")} options={TIPOS}/>
+        <InpF label="Faixa de Valor (R$)" value={f.faixa_valor} onChange={set("faixa_valor")} type="number"/>
+        <SelF label="Renda Bruta Mensal" value={f.faixa_renda} onChange={set("faixa_renda")} options={RENDAS}/>
+        <SelF label="Prazo de Compra" value={f.prazo_compra} onChange={set("prazo_compra")} options={["Imediato","1-3 meses","3-6 meses","6-12 meses","Mais de 1 ano"]}/>
+        <SelF label="Corretor Responsável" value={f.corretor} onChange={set("corretor")} options={CORRS}/>
+        <SelF label="Etapa do Funil" value={f.etapa} onChange={set("etapa")} options={ETAPAS}/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,background:"#1e293b",borderRadius:10,padding:12}}>
+        <ChkF label="Possui entrada" value={f.possui_entrada} onChange={set("possui_entrada")}/>
+        <ChkF label="Visitou empreendimento" value={f.visitou} onChange={set("visitou")}/>
+        <ChkF label="Responde rápido" value={f.responde_rapido} onChange={set("responde_rapido")}/>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:3}}>
+        <label style={{fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase"}}>Observações</label>
+        <textarea value={f.observacoes} onChange={e=>set("observacoes")(e.target.value)} rows={3}
+          style={{background:"#1e293b",border:"1px solid #334155",borderRadius:10,padding:"8px 11px",color:"#f1f5f9",fontSize:12,outline:"none",resize:"vertical",width:"100%",boxSizing:"border-box"}}/>
+      </div>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+        <button onClick={onClose} style={{padding:"9px 18px",borderRadius:10,border:"1px solid #334155",background:"transparent",color:"#94a3b8",cursor:"pointer",fontWeight:600,fontSize:12}}>Cancelar</button>
+        <button onClick={()=>{if(!f.nome||!f.telefone){alert("Nome e telefone obrigatórios!");return;}onSave(f);}} disabled={saving}
+          style={{padding:"9px 22px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"white",cursor:saving?"wait":"pointer",fontWeight:700,fontSize:12,opacity:saving?0.7:1}}>
+          {saving?"Salvando...":"Salvar Lead"}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ── LEAD DETAIL ──
+const LeadDetail=({lead,onUpdate,saving})=>{
+  const [aba,setAba]=useState("info");
+  const [nota,setNota]=useState("");
+  const sc=calcScore(lead); const t=getTemp(sc);
+  const hist=lead.historico||[];
+  const addEvt=(tipo,texto)=>{const ev={id:Date.now(),tipo,texto,data:hoje(),hora:agora()};onUpdate({...lead,historico:[...hist,ev]});};
+  const mudarEtapa=etapa=>{const ev={id:Date.now(),tipo:"Etapa",texto:`${lead.etapa} → ${etapa}`,data:hoje(),hora:agora()};onUpdate({...lead,etapa,historico:[...hist,ev]});};
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#1e293b",borderRadius:12,padding:"14px 18px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:48,height:48,borderRadius:"50%",background:`linear-gradient(135deg,${t.c}88,${t.c})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:800,color:"white"}}>{lead.nome[0]}</div>
+          <div>
+            <div style={{fontSize:16,fontWeight:800,color:"#f1f5f9"}}>{lead.nome}</div>
+            <div style={{fontSize:11,color:"#64748b"}}>{lead.telefone} · {lead.cidade||"—"} · {lead.data_cadastro}</div>
+            <Bdg text={lead.etapa} color={CE[lead.etapa]} sz={9}/>
+          </div>
+        </div>
+        <ScoreMeter sc={sc} big/>
+      </div>
+      <div style={{display:"flex",gap:3,background:"#1e293b",borderRadius:9,padding:3}}>
+        {["info","etapa","hist"].map(a=>(
+          <button key={a} onClick={()=>setAba(a)} style={{flex:1,padding:"7px",borderRadius:7,border:"none",cursor:"pointer",fontWeight:600,fontSize:11,background:aba===a?"#6366f1":"transparent",color:aba===a?"white":"#64748b"}}>
+            {a==="info"?"Informações":a==="etapa"?"Etapa / Funil":`Histórico (${hist.length})`}
+          </button>
+        ))}
+      </div>
+      {aba==="info"&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          {[["Telefone",lead.telefone],["Cidade",lead.cidade||"—"],["Origem",lead.origem||"—"],["Empreendimento",lead.empreendimento||"—"],["Tipo de Imóvel",lead.tipo_imovel||"—"],["Valor",lead.faixa_valor?fmt(lead.faixa_valor):"—"],["Renda Bruta",lead.faixa_renda||"—"],["Prazo",lead.prazo_compra||"—"],["Corretor",lead.corretor||"—"],["Dias no sistema",`${diasDesde(lead.data_cadastro)}d`]].map(([l,v])=>(
+            <div key={l} style={{background:"#1e293b",borderRadius:9,padding:"9px 12px"}}>
+              <div style={{fontSize:8,color:"#475569",textTransform:"uppercase",fontWeight:700}}>{l}</div>
+              <div style={{fontSize:11,color:"#f1f5f9",fontWeight:600,marginTop:2}}>{v}</div>
+            </div>
+          ))}
+          <div style={{gridColumn:"span 2",background:"#1e293b",borderRadius:9,padding:"9px 12px"}}>
+            <div style={{fontSize:8,color:"#475569",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Fatores de Temperatura</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {[{ok:lead.possui_entrada,l:"Tem entrada"},{ok:lead.visitou,l:"Visitou"},{ok:lead.responde_rapido,l:"Responde rápido"},{ok:["Imediato","1-3 meses"].includes(lead.prazo_compra),l:"Prazo imediato"}].map((fi,i)=>(
+                <span key={i} style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:600,background:fi.ok?"#22c55e22":"#ef444422",color:fi.ok?"#22c55e":"#ef4444"}}>{fi.ok?"✓":"✗"} {fi.l}</span>
+              ))}
+            </div>
+          </div>
+          {lead.observacoes&&<div style={{gridColumn:"span 2",background:"#1e293b",borderRadius:9,padding:"9px 12px"}}><div style={{fontSize:8,color:"#475569",textTransform:"uppercase",fontWeight:700,marginBottom:3}}>Observações</div><div style={{fontSize:11,color:"#cbd5e1",lineHeight:1.5}}>{lead.observacoes}</div></div>}
+        </div>
+      )}
+      {aba==="etapa"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{fontSize:11,color:"#94a3b8"}}>Selecione a etapa atual:</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {ETAPAS.map(e=>(
+              <button key={e} onClick={()=>mudarEtapa(e)} disabled={saving}
+                style={{padding:"6px 12px",borderRadius:20,fontSize:10,fontWeight:700,cursor:"pointer",border:`1.5px solid ${CE[e]}`,background:lead.etapa===e?CE[e]:"transparent",color:lead.etapa===e?"white":CE[e]}}>
+                {e}
+              </button>
+            ))}
+          </div>
+          {diasDesde(lead.data_cadastro)>7&&<div style={{background:"#f9741611",border:"1px solid #f9741644",borderRadius:9,padding:"9px 12px",fontSize:11,color:"#fb923c"}}>⏰ Lead há {diasDesde(lead.data_cadastro)} dias no sistema!</div>}
+        </div>
+      )}
+      {aba==="hist"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{display:"flex",gap:7}}>
+            <input value={nota} onChange={e=>setNota(e.target.value)} placeholder="Registrar ligação, reunião, nota..."
+              onKeyDown={e=>{if(e.key==="Enter"&&nota.trim()){addEvt("Nota",nota);setNota("");}}}
+              style={{flex:1,background:"#1e293b",border:"1px solid #334155",borderRadius:9,padding:"8px 12px",color:"#f1f5f9",fontSize:12,outline:"none"}}/>
+            <button onClick={()=>{if(nota.trim()){addEvt("Nota",nota);setNota("");}}} disabled={saving}
+              style={{padding:"8px 14px",borderRadius:9,border:"none",background:"#6366f1",color:"white",cursor:"pointer",fontWeight:700}}>+</button>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:260,overflowY:"auto"}}>
+            {[...hist].reverse().map((h,i)=>(
+              <div key={i} style={{display:"flex",gap:9,background:"#1e293b",borderRadius:9,padding:"9px 12px"}}>
+                <div style={{width:7,height:7,borderRadius:"50%",marginTop:4,flexShrink:0,background:h.tipo==="Etapa"?"#f59e0b":"#6366f1"}}/>
+                <div>
+                  <div style={{fontSize:11,color:"#f1f5f9"}}>{h.texto}</div>
+                  <div style={{fontSize:9,color:"#475569"}}>{h.tipo} · {h.data} {h.hora}</div>
+                </div>
+              </div>
+            ))}
+            {hist.length===0&&<div style={{textAlign:"center",padding:24,color:"#475569",fontSize:12}}>Sem movimentações.</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── DASHBOARD EXECUTIVO ──
+const DashExec=({leads,onView,onNew})=>{
+  const total=leads.length;
+  const vds=leads.filter(l=>l.etapa==="Venda Concluída");
+  const ativos=leads.filter(l=>l.etapa!=="Venda Concluída");
+  const vgv=vds.reduce((a,l)=>a+(Number(l.faixa_valor)||0),0);
+  const taxa=total>0?((vds.length/total)*100).toFixed(1):0;
+  const smC=leads.filter(l=>l.etapa==="Lead Recebido");
+  const qt=ativos.filter(l=>calcScore(l)>=51);
+  const mqt=ativos.filter(l=>calcScore(l)>=76);
+  const vis=leads.filter(l=>l.visitou);
+  const prop=leads.filter(l=>["Proposta Enviada","Negociação","Reserva","Contrato"].includes(l.etapa));
+  const parados=ativos.filter(l=>diasDesde(l.data_cadastro)>=10).sort((a,b)=>diasDesde(b.data_cadastro)-diasDesde(a.data_cadastro));
+  const qSC=qt.filter(l=>["Lead Recebido","Primeiro Contato"].includes(l.etapa));
+  const eRank=EMPS.map(e=>{const ls=leads.filter(l=>l.empreendimento===e);return{e,total:ls.length,conv:ls.filter(l=>l.etapa==="Venda Concluída").length};}).sort((a,b)=>b.conv-a.conv);
+  const cRank=CORRS.map(c=>{const ls=leads.filter(l=>l.corretor===c);const cv=ls.filter(l=>l.etapa==="Venda Concluída").length;return{c,total:ls.length,conv:cv,tx:ls.length>0?((cv/ls.length)*100).toFixed(0):0};}).sort((a,b)=>b.conv-a.conv);
+  const cts=ETAPAS.map(e=>({e,n:leads.filter(l=>l.etapa===e).length}));
+  const gi=cts.reduce((mi,c,i,a)=>c.n>a[mi].n?i:mi,0);
+
+  if(total===0)return(
+    <div style={{textAlign:"center",padding:"80px 0"}}>
+      <div style={{fontSize:52,marginBottom:12}}>🏗️</div>
+      <div style={{fontSize:17,fontWeight:700,color:"#64748b"}}>Bem-vindo ao ImobCRM!</div>
+      <div style={{fontSize:13,color:"#475569",marginTop:6,marginBottom:20}}>Dados salvos em tempo real no Supabase ☁️</div>
+      <button onClick={onNew} style={{padding:"12px 28px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"white",cursor:"pointer",fontWeight:700,fontSize:14}}>+ Adicionar Primeiro Lead</button>
+    </div>
+  );
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      {(qSC.length>0||parados.length>0)&&(
+        <div style={{background:"#7c2d1211",border:"1px solid #f9741666",borderRadius:14,padding:16}}>
+          <div style={{fontSize:13,fontWeight:800,color:"#fb923c",marginBottom:10}}>⚡ ATENÇÃO NECESSÁRIA — Ações para hoje</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+            {qSC.slice(0,2).map((l,i)=>(
+              <div key={i} onClick={()=>onView(l)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1e293b",borderRadius:9,padding:"9px 12px",cursor:"pointer",border:"1px solid #334155"}}>
+                <div><div style={{fontSize:12,fontWeight:700,color:"#f1f5f9"}}>{l.nome}</div><div style={{fontSize:10,color:"#94a3b8"}}>{l.telefone}</div></div>
+                <Bdg text="🔥 Quente s/ contato" color="#ef4444" sz={9}/>
+              </div>
+            ))}
+            {parados.slice(0,2).map((l,i)=>(
+              <div key={i} onClick={()=>onView(l)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1e293b",borderRadius:9,padding:"9px 12px",cursor:"pointer",border:"1px solid #334155"}}>
+                <div><div style={{fontSize:12,fontWeight:700,color:"#f1f5f9"}}>{l.nome}</div><div style={{fontSize:10,color:"#94a3b8"}}>{l.empreendimento||"—"}</div></div>
+                <span style={{fontSize:10,fontWeight:700,color:"#f97316"}}>{diasDesde(l.data_cadastro)}d parado</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+        <KPI label="Total de Leads" value={total} icon="leads" color="#6366f1" sub="No sistema"/>
+        <KPI label="Sem Atendimento" value={smC.length} icon="alert" color="#ef4444" sub={`${total>0?((smC.length/total)*100).toFixed(0):0}% do total`}/>
+        <KPI label="Leads Quentes" value={qt.length} icon="fire" color="#f97316" sub={`${mqt.length} muito quentes 🔥🔥`}/>
+        <KPI label="Visitas" value={vis.length} icon="eye" color="#8b5cf6" sub={`${total>0?((vis.length/total)*100).toFixed(0):0}% dos leads`}/>
+        <KPI label="Propostas" value={prop.length} icon="target" color="#f59e0b" sub="Em negociação"/>
+        <KPI label="Vendas Concluídas" value={vds.length} icon="check" color="#22c55e" sub={`${taxa}% conversão`}/>
+        <KPI label="VGV Vendido" value={fmt(vgv)} icon="dollar" color="#14b8a6" sub="Volume total"/>
+        <KPI label="Gargalo do Funil" value={cts[gi].e.split(" ")[0]} icon="alert" color="#ec4899" sub={`${cts[gi].n} leads aqui`}/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:12}}>
+        <Card><div style={{fontSize:12,fontWeight:700,color:"#f1f5f9",marginBottom:12}}>📊 Funil de Conversão</div><Funnel leads={leads}/></Card>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <Card style={{flex:1}}>
+            <div style={{fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase",marginBottom:7}}>🏆 Melhor Empreendimento</div>
+            {eRank[0]?.total>0?<><div style={{fontSize:13,fontWeight:800,color:"#f1f5f9"}}>{eRank[0].e}</div><div style={{fontSize:11,color:"#22c55e",marginTop:3}}>{eRank[0].conv} vendas · {eRank[0].total} leads</div></>:<div style={{fontSize:11,color:"#475569"}}>Sem dados</div>}
+          </Card>
+          <Card style={{flex:1}}>
+            <div style={{fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase",marginBottom:7}}>🥇 Melhor Corretor</div>
+            {cRank[0]?.total>0?<div style={{display:"flex",alignItems:"center",gap:9}}><div style={{width:32,height:32,borderRadius:"50%",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,color:"white",fontSize:13,flexShrink:0}}>{cRank[0].c[0]}</div><div><div style={{fontSize:13,fontWeight:800,color:"#f1f5f9"}}>{cRank[0].c}</div><div style={{fontSize:11,color:"#22c55e"}}>{cRank[0].conv} vendas · {cRank[0].tx}%</div></div></div>:<div style={{fontSize:11,color:"#475569"}}>Sem dados</div>}
+          </Card>
+        </div>
+      </div>
+      <Card>
+        <div style={{fontSize:12,fontWeight:700,color:"#f1f5f9",marginBottom:12}}>🏗️ Saúde dos Empreendimentos</div>
+        {eRank.filter(e=>e.total>0).length===0?<div style={{color:"#475569",fontSize:12}}>Nenhum lead vinculado a empreendimento ainda.</div>:(
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
+            {eRank.filter(e=>e.total>0).map((e,i)=>{
+              const sC=leads.filter(l=>l.empreendimento===e.e&&l.etapa==="Lead Recebido").length;
+              const eA=leads.filter(l=>l.empreendimento===e.e&&!["Lead Recebido","Venda Concluída"].includes(l.etapa)).length;
+              const tx=e.total>0?((e.conv/e.total)*100).toFixed(0):0;
+              const al=e.total>=3&&parseInt(tx)<15&&sC>eA;
+              return(
+                <div key={i} style={{background:"#1e293b",borderRadius:10,padding:"11px 14px",border:al?"1px solid #f9741644":"1px solid #334155"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+                    <div style={{display:"flex",alignItems:"center",gap:7}}>
+                      <span style={{fontSize:12,fontWeight:700,color:"#f1f5f9"}}>{e.e}</span>
+                      {al&&<Bdg text="⚠️ Tráfego Frio" color="#f97316" sz={9}/>}
+                    </div>
+                    <div><span style={{fontSize:16,fontWeight:800,color:parseInt(tx)>=20?"#22c55e":parseInt(tx)>=10?"#f59e0b":"#ef4444"}}>{tx}%</span><span style={{fontSize:9,color:"#64748b"}}> conv.</span></div>
+                  </div>
+                  <div style={{display:"flex",gap:0,borderRadius:5,overflow:"hidden",height:7}}>
+                    {e.total>0&&<><div style={{width:`${(sC/e.total)*100}%`,background:"#6366f1"}}/><div style={{width:`${(eA/e.total)*100}%`,background:"#f59e0b"}}/><div style={{width:`${(e.conv/e.total)*100}%`,background:"#22c55e"}}/></>}
+                  </div>
+                  <div style={{display:"flex",gap:12,marginTop:5}}>
+                    <span style={{fontSize:9,color:"#818cf8"}}>● {sC} sem contato</span>
+                    <span style={{fontSize:9,color:"#fbbf24"}}>● {eA} em andamento</span>
+                    <span style={{fontSize:9,color:"#4ade80"}}>● {e.conv} vendidos</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+// ── LEADS VIEW ──
+const LeadsView=({leads,onNew,onView,onDelete})=>{
+  const [q,setQ]=useState(""); const [fE,setFE]=useState(""); const [fT,setFT]=useState(""); const [fC,setFC]=useState(""); const [fEt,setFEt]=useState(""); const [fTp,setFTp]=useState("");
+  const fl=useMemo(()=>leads.filter(l=>{
+    const mQ=!q||l.nome.toLowerCase().includes(q.toLowerCase())||l.telefone.includes(q)||(l.cidade||"").toLowerCase().includes(q.toLowerCase());
+    const sc=calcScore(l); const tl=getTemp(sc).l;
+    return mQ&&(!fE||l.empreendimento===fE)&&(!fT||l.tipo_imovel===fT)&&(!fC||l.corretor===fC)&&(!fEt||l.etapa===fEt)&&(!fTp||tl===fTp);
+  }),[leads,q,fE,fT,fC,fEt,fTp]);
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center"}}>
+        <div style={{display:"flex",alignItems:"center",gap:7,background:"#1e293b",border:"1px solid #334155",borderRadius:9,padding:"7px 12px",flex:1,minWidth:180}}>
+          <Ico n="search" s={13} c="#64748b"/>
+          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar nome, telefone, cidade..."
+            style={{border:"none",background:"transparent",color:"#f1f5f9",fontSize:12,outline:"none",flex:1}}/>
+        </div>
+        {[["Empreendimento",fE,setFE,EMPS],["Tipo",fT,setFT,TIPOS],["Corretor",fC,setFC,CORRS],["Etapa",fEt,setFEt,ETAPAS],["Temperatura",fTp,setFTp,["Muito Quente","Quente","Morno","Frio"]]].map(([l,v,s,o])=>(
+          <select key={l} value={v} onChange={e=>s(e.target.value)} style={{background:"#1e293b",border:"1px solid #334155",borderRadius:9,padding:"7px 10px",color:v?"#f1f5f9":"#64748b",fontSize:11,cursor:"pointer",outline:"none"}}>
+            <option value="">{l}</option>{o.map(op=><option key={op} value={op}>{op}</option>)}
+          </select>
+        ))}
+        <button onClick={onNew} style={{display:"flex",alignItems:"center",gap:5,padding:"8px 16px",borderRadius:9,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"white",cursor:"pointer",fontWeight:700,fontSize:12,whiteSpace:"nowrap"}}>
+          <Ico n="plus" s={13}/> Novo Lead
+        </button>
+      </div>
+      <div style={{fontSize:11,color:"#64748b"}}>{fl.length} de {leads.length} leads</div>
+      <div style={{background:"#0f172a",border:"1px solid #1e293b",borderRadius:14,overflow:"hidden"}}>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:800}}>
+            <thead><tr style={{background:"#1e293b"}}>{["Lead","Temp.","Empreendimento","Tipo","Etapa","Corretor","Valor","Dias","Ações"].map(h=><th key={h} style={{padding:"10px 13px",textAlign:"left",fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+            <tbody>
+              {fl.map((lead,i)=>{
+                const sc=calcScore(lead); const tp=getTemp(sc); const d=diasDesde(lead.data_cadastro);
+                return(
+                  <tr key={lead.id||i} style={{borderTop:"1px solid #1e293b"}} onMouseEnter={e=>e.currentTarget.style.background="#1e293b44"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <td style={{padding:"10px 13px",cursor:"pointer"}} onClick={()=>onView(lead)}>
+                      <div style={{display:"flex",alignItems:"center",gap:9}}>
+                        <div style={{width:32,height:32,borderRadius:"50%",flexShrink:0,background:`linear-gradient(135deg,${tp.c}88,${tp.c})`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,color:"white",fontSize:13}}>{lead.nome[0]}</div>
+                        <div><div style={{fontSize:12,fontWeight:600,color:"#f1f5f9"}}>{lead.nome}</div><div style={{fontSize:10,color:"#64748b"}}>{lead.telefone}</div></div>
+                      </div>
+                    </td>
+                    <td style={{padding:"10px 13px"}}><ScoreMeter sc={sc}/></td>
+                    <td style={{padding:"10px 13px",fontSize:11,color:"#cbd5e1"}}>{lead.empreendimento||"—"}</td>
+                    <td style={{padding:"10px 13px"}}>{lead.tipo_imovel?<Bdg text={lead.tipo_imovel.replace("Apartamento ","")} color="#f59e0b" sz={9}/>:"—"}</td>
+                    <td style={{padding:"10px 13px"}}><Bdg text={lead.etapa} color={CE[lead.etapa]} sz={9}/></td>
+                    <td style={{padding:"10px 13px",fontSize:11,color:"#cbd5e1"}}>{lead.corretor||"—"}</td>
+                    <td style={{padding:"10px 13px",fontSize:11,color:"#22c55e",fontWeight:600}}>{lead.faixa_valor?fmt(lead.faixa_valor):"—"}</td>
+                    <td style={{padding:"10px 13px"}}><span style={{fontSize:11,fontWeight:600,color:d>=10?"#ef4444":d>=5?"#f97316":"#64748b"}}>{d}d</span></td>
+                    <td style={{padding:"10px 13px"}}>
+                      <div style={{display:"flex",gap:5}}>
+                        <button onClick={()=>onView(lead)} style={{background:"#1e293b",border:"none",borderRadius:7,padding:5,cursor:"pointer",display:"flex"}}><Ico n="edit" s={12} c="#6366f1"/></button>
+                        <button onClick={()=>onDelete(lead.id)} style={{background:"#1e293b",border:"none",borderRadius:7,padding:5,cursor:"pointer",display:"flex"}}><Ico n="trash" s={12} c="#ef4444"/></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {fl.length===0&&<tr><td colSpan={9} style={{padding:36,textAlign:"center",color:"#475569",fontSize:12}}>Nenhum lead encontrado.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── KANBAN ──
+const KanbanView=({leads,onUpdate,onView})=>{
+  const [drag,setDrag]=useState(null); const [over,setOver]=useState(null);
+  const drop=etapa=>{
+    if(drag){const ev={id:Date.now(),tipo:"Etapa",texto:`${drag.etapa} → ${etapa}`,data:hoje(),hora:agora()};onUpdate({...drag,etapa,historico:[...(drag.historico||[]),ev]});}
+    setDrag(null);setOver(null);
+  };
+  return(
+    <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:10}}>
+      {ETAPAS.map(etapa=>{
+        const col=leads.filter(l=>l.etapa===etapa); const cor=CE[etapa];
+        return(
+          <div key={etapa} onDragOver={e=>{e.preventDefault();setOver(etapa);}} onDrop={()=>drop(etapa)} onDragLeave={()=>setOver(null)}
+            style={{minWidth:200,maxWidth:200,background:over===etapa?"#1e293b":"#0f172a",border:`1px solid ${over===etapa?cor:"#1e293b"}`,borderRadius:12,padding:9,display:"flex",flexDirection:"column",gap:7,flexShrink:0}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:2}}>
+              <div style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:8,height:8,borderRadius:"50%",background:cor}}/><span style={{fontSize:10,fontWeight:700,color:"#e2e8f0"}}>{etapa}</span></div>
+              <span style={{background:`${cor}22`,color:cor,fontSize:9,fontWeight:700,padding:"1px 6px",borderRadius:20}}>{col.length}</span>
+            </div>
+            {col.map((lead,li)=>{
+              const sc=calcScore(lead); const tp=getTemp(sc);
+              return(
+                <div key={lead.id||li} draggable onDragStart={()=>setDrag(lead)} onClick={()=>onView(lead)}
+                  style={{background:"#1e293b",borderRadius:9,padding:9,cursor:"grab",border:"1px solid #334155",userSelect:"none"}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor=cor;e.currentTarget.style.transform="translateY(-1px)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="#334155";e.currentTarget.style.transform="none";}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#f1f5f9",flex:1}}>{lead.nome}</div>
+                    <span style={{fontSize:9,fontWeight:800,padding:"1px 5px",borderRadius:20,background:`${tp.c}22`,color:tp.c,flexShrink:0}}>{sc}</span>
+                  </div>
+                  {lead.empreendimento&&<div style={{fontSize:9,color:"#64748b",marginBottom:4}}>{lead.empreendimento}</div>}
+                  <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
+                    {lead.tipo_imovel&&<Bdg text={lead.tipo_imovel.split(" ").slice(-2).join(" ")} color="#f59e0b" sz={8}/>}
+                    <span style={{fontSize:9,color:tp.c}}>{tp.e}</span>
+                  </div>
+                  {lead.faixa_valor>0&&<div style={{fontSize:9,color:"#22c55e",fontWeight:700,marginTop:4}}>{fmt(lead.faixa_valor)}</div>}
+                  <div style={{fontSize:8,color:"#334155",marginTop:4}}>{lead.corretor||"—"} · {diasDesde(lead.data_cadastro)}d</div>
+                </div>
+              );
+            })}
+            {col.length===0&&<div style={{textAlign:"center",padding:"18px 0",color:"#1e293b",fontSize:10}}>Arraste aqui</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ── GARGALOS ──
+const GargalosView=({leads})=>{
+  const total=leads.length;
+  const ec=ETAPAS.map(e=>({e,n:leads.filter(l=>l.etapa===e&&diasDesde(l.data_cadastro)>7).length})).sort((a,b)=>b.n-a.n)[0];
+  const pc=CORRS.map(c=>{const ls=leads.filter(l=>l.corretor===c);const cv=ls.filter(l=>l.etapa==="Venda Concluída").length;return{c,total:ls.length,conv:cv,tx:ls.length>0?((cv/ls.length)*100).toFixed(0):0};}).filter(c=>c.total>=2).sort((a,b)=>Number(a.tx)-Number(b.tx))[0];
+  const pe=EMPS.map(e=>{const ls=leads.filter(l=>l.empreendimento===e);const cv=ls.filter(l=>l.etapa==="Venda Concluída").length;return{e,total:ls.length,conv:cv,tx:ls.length>0?((cv/ls.length)*100).toFixed(0):0};}).filter(e=>e.total>=3).sort((a,b)=>Number(a.tx)-Number(b.tx))[0];
+  const tm=leads.length>0?(leads.reduce((a,l)=>a+diasDesde(l.data_cadastro),0)/leads.length).toFixed(1):0;
+  const scs=leads.map(l=>calcScore(l));
+  const fr=scs.filter(s=>s<26).length, mo=scs.filter(s=>s>=26&&s<51).length, qt=scs.filter(s=>s>=51&&s<76).length, mq=scs.filter(s=>s>=76).length;
+  const AB=({color,title,value,detail})=>(
+    <div style={{background:`${color}11`,border:`1px solid ${color}44`,borderRadius:12,padding:16}}>
+      <div style={{fontSize:10,fontWeight:700,color,textTransform:"uppercase",marginBottom:3}}>⚠️ {title}</div>
+      <div style={{fontSize:18,fontWeight:800,color:"#f1f5f9"}}>{value||"—"}</div>
+      {detail&&<div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>{detail}</div>}
+    </div>
+  );
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{background:"linear-gradient(135deg,#1e1b4b,#312e81)",border:"1px solid #6366f144",borderRadius:14,padding:18}}>
+        <div style={{fontSize:17,fontWeight:800,color:"#f1f5f9"}}>🔍 Onde Estamos Perdendo Clientes?</div>
+        <div style={{fontSize:12,color:"#a5b4fc",marginTop:3}}>{total} leads analisados em tempo real.</div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10}}>
+        <AB color="#ef4444" title="Maior gargalo do funil" value={ec?.n>0?ec.e:"Funil saudável"} detail={ec?.n>0?`${ec.n} leads parados >7 dias`:"Sem gargalos críticos"}/>
+        <AB color="#f97316" title="Corretor com menor conversão" value={pc?`${pc.c} (${pc.tx}%)`:null} detail={pc?`${pc.total} leads, ${pc.conv} convertidos`:"Dados insuficientes"}/>
+        <AB color="#f59e0b" title="Empreendimento com maior rejeição" value={pe?pe.e.replace("Residencial ","Res. "):null} detail={pe?`Conversão: ${pe.tx}% (${pe.conv}/${pe.total})`:"Dados insuficientes"}/>
+        <AB color="#8b5cf6" title="Tempo médio no sistema" value={`${tm} dias`} detail="Tempo médio que leads ficam sem fechar"/>
+      </div>
+      <Card>
+        <div style={{fontSize:12,fontWeight:700,color:"#f1f5f9",marginBottom:12}}>🌡️ Distribuição de Temperatura</div>
+        {total===0?<div style={{color:"#475569",fontSize:12}}>Sem dados.</div>:(
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
+            {[{l:"🔥🔥 Muito Quente (76-100)",n:mq,c:"#ef4444"},{l:"🔥 Quente (51-75)",n:qt,c:"#f97316"},{l:"🌤 Morno (26-50)",n:mo,c:"#f59e0b"},{l:"❄️ Frio (0-25)",n:fr,c:"#6366f1"}].map((t,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:9}}>
+                <span style={{width:175,fontSize:11,color:"#94a3b8",flexShrink:0}}>{t.l}</span>
+                <div style={{flex:1,background:"#1e293b",borderRadius:5,height:20,overflow:"hidden"}}>
+                  <div style={{width:`${total>0?(t.n/total)*100:0}%`,background:t.c,height:"100%",borderRadius:5,display:"flex",alignItems:"center",paddingLeft:7}}>
+                    {t.n>0&&<span style={{fontSize:10,color:"white",fontWeight:700}}>{t.n}</span>}
+                  </div>
+                </div>
+                <span style={{fontSize:10,color:"#64748b",width:36,textAlign:"right"}}>{total>0?((t.n/total)*100).toFixed(0):0}%</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+      <Card>
+        <div style={{fontSize:12,fontWeight:700,color:"#f1f5f9",marginBottom:12}}>⏰ Top 10 Leads Mais Parados</div>
+        {leads.filter(l=>l.etapa!=="Venda Concluída").sort((a,b)=>diasDesde(b.data_cadastro)-diasDesde(a.data_cadastro)).slice(0,10).map((lead,i)=>{
+          const d=diasDesde(lead.data_cadastro);
+          return(
+            <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:"1px solid #1e293b"}}>
+              <div><div style={{fontSize:12,fontWeight:600,color:"#f1f5f9"}}>{lead.nome}</div><div style={{fontSize:10,color:"#64748b"}}>{lead.etapa} · {lead.corretor||"—"}</div></div>
+              <div style={{textAlign:"right"}}><span style={{fontSize:12,fontWeight:700,color:d>=14?"#ef4444":d>=7?"#f97316":"#f59e0b"}}>{d} dias</span><div style={{fontSize:9,color:"#64748b"}}>sem evolução</div></div>
+            </div>
+          );
+        })}
+        {leads.filter(l=>l.etapa!=="Venda Concluída").length===0&&<div style={{color:"#475569",fontSize:12}}>Nenhum lead ativo.</div>}
+      </Card>
+    </div>
+  );
+};
+
+// ── PREVISÃO ──
+const PrevisaoView=({leads})=>{
+  const v=leads.filter(l=>l.etapa==="Venda Concluída");
+  const av=leads.filter(l=>["Proposta Enviada","Negociação","Reserva","Contrato"].includes(l.etapa));
+  const taxa=leads.length>0?(v.length/leads.length):0;
+  const proj=Math.round(av.length*0.55);
+  const ticket=v.length>0?v.reduce((a,l)=>a+(Number(l.faixa_valor)||0),0)/v.length:leads.reduce((a,l)=>a+(Number(l.faixa_valor)||0),0)/(leads.length||1);
+  const pVGV=proj*ticket;
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{background:"linear-gradient(135deg,#0f2922,#14532d)",border:"1px solid #22c55e44",borderRadius:14,padding:18}}>
+        <div style={{fontSize:17,fontWeight:800,color:"#f1f5f9"}}>📈 Previsão de Vendas</div>
+        <div style={{fontSize:12,color:"#86efac",marginTop:3}}>{av.length} leads em etapas avançadas · conversão histórica {(taxa*100).toFixed(1)}%</div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
+        {[{l:"Vendas Projetadas",v:proj,c:"#22c55e",u:"unidades este mês"},{l:"VGV Projetado",v:fmt(pVGV),c:"#f59e0b",u:"volume gerado"},{l:"Comissão Estimada (6%)",v:fmt(pVGV*0.06),c:"#8b5cf6",u:"estimativa"}].map((k,i)=>(
+          <div key={i} style={{background:"linear-gradient(135deg,#0f172a,#1e1b4b)",border:`1px solid ${k.c}33`,borderRadius:14,padding:18,textAlign:"center"}}>
+            <div style={{fontSize:10,color:"#64748b",textTransform:"uppercase",fontWeight:700,marginBottom:7}}>{k.l}</div>
+            <div style={{fontSize:28,fontWeight:800,color:k.c}}>{k.v}</div>
+            <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>{k.u}</div>
+          </div>
+        ))}
+      </div>
+      <Card>
+        <div style={{fontSize:12,fontWeight:700,color:"#f1f5f9",marginBottom:12}}>🎯 Pipeline — Leads em Etapas Avançadas ({av.length})</div>
+        {av.length===0?<div style={{color:"#475569",fontSize:12}}>Nenhum lead em etapa avançada ainda.</div>:(
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {av.map((lead,i)=>{
+              const sc=calcScore(lead);
+              return(
+                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1e293b",borderRadius:9,padding:"9px 12px"}}>
+                  <div><div style={{fontSize:12,fontWeight:600,color:"#f1f5f9"}}>{lead.nome}</div><div style={{fontSize:10,color:"#64748b"}}>{lead.empreendimento||"—"} · {lead.corretor||"—"}</div></div>
+                  <div style={{display:"flex",gap:7,alignItems:"center"}}>
+                    <Bdg text={lead.etapa} color={CE[lead.etapa]} sz={9}/><ScoreMeter sc={sc}/>
+                    {lead.faixa_valor>0&&<span style={{fontSize:11,fontWeight:700,color:"#22c55e"}}>{fmt(lead.faixa_valor)}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+// ── METAS ──
+const MetasView=({leads,metas,onSaveMetas,savingMetas})=>{
+  const [ed,setEd]=useState(false);
+  const [draft,setDraft]=useState({...metas});
+  useEffect(()=>setDraft({...metas}),[metas]);
+  const stats=CORRS.map(c=>{const ls=leads.filter(l=>l.corretor===c);return{c,total:ls.length,vendas:ls.filter(l=>l.etapa==="Venda Concluída").length,visitas:ls.filter(l=>l.visitou).length,propostas:ls.filter(l=>["Proposta Enviada","Negociação","Reserva","Contrato"].includes(l.etapa)).length,vgv:ls.filter(l=>l.etapa==="Venda Concluída").reduce((a,l)=>a+(Number(l.faixa_valor)||0),0)};});
+  const MB=({atual,meta,color})=>{const pct=meta>0?Math.min((atual/meta)*100,100):0;return(<div style={{marginTop:4}}><div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#64748b",marginBottom:2}}><span>{atual}/{meta}</span><span style={{fontWeight:700,color:pct>=100?"#22c55e":pct>=60?"#f59e0b":"#ef4444"}}>{pct.toFixed(0)}%</span></div><div style={{background:"#0f172a",borderRadius:5,height:7,overflow:"hidden"}}><div style={{width:`${pct}%`,background:pct>=100?"#22c55e":color,height:"100%",borderRadius:5}}/></div></div>);};
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div><div style={{fontSize:17,fontWeight:800,color:"#f1f5f9"}}>🎯 Metas Comerciais</div><div style={{fontSize:11,color:"#64748b",marginTop:2}}>Salvo automaticamente no Supabase ☁️</div></div>
+        <button onClick={()=>ed?(onSaveMetas(draft),setEd(false)):setEd(true)} disabled={savingMetas}
+          style={{padding:"9px 18px",borderRadius:9,border:"none",background:ed?"#22c55e":"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"white",cursor:"pointer",fontWeight:700,fontSize:12,opacity:savingMetas?0.7:1}}>
+          {savingMetas?"Salvando...":ed?"✓ Salvar":"✏️ Editar Metas"}
+        </button>
+      </div>
+      {ed&&(
+        <Card style={{border:"1px solid #6366f144"}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#f1f5f9",marginBottom:12}}>Definir Metas</div>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            {CORRS.map(c=>(
+              <div key={c} style={{background:"#1e293b",borderRadius:10,padding:12}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#f1f5f9",marginBottom:9}}>{c}</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+                  {[["vendas","Vendas","#22c55e"],["visitas","Visitas","#8b5cf6"],["propostas","Propostas","#f59e0b"],["vgv","VGV (R$)","#14b8a6"]].map(([k,lbl,cor])=>(
+                    <div key={k}>
+                      <label style={{fontSize:9,color:"#64748b",display:"block",marginBottom:3,textTransform:"uppercase"}}>{lbl}</label>
+                      <input type="number" value={draft[c]?.[k]||0} onChange={e=>setDraft(p=>({...p,[c]:{...p[c],[k]:Number(e.target.value)}}))}
+                        style={{width:"100%",background:"#0f172a",border:`1px solid ${cor}44`,borderRadius:7,padding:"6px 9px",color:"#f1f5f9",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:12}}>
+        {stats.sort((a,b)=>b.vendas-a.vendas).map((s,i)=>{
+          const m=metas[s.c]||{vendas:5,vgv:2000000,visitas:20,propostas:15};
+          const cores=["#f59e0b","#94a3b8","#cd7c3c"];
+          return(
+            <div key={s.c} style={{background:"#0f172a",border:"1px solid #1e293b",borderRadius:14,padding:18,borderTop:`3px solid ${i<3?cores[i]:"#334155"}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                <div style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,color:"white",fontSize:16,flexShrink:0}}>
+                  {i===0?"🥇":i===1?"🥈":i===2?"🥉":s.c[0]}
+                </div>
+                <div><div style={{fontSize:14,fontWeight:800,color:"#f1f5f9"}}>{s.c}</div><div style={{fontSize:10,color:"#64748b"}}>{s.total} leads · #{i+1}</div></div>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:9}}>
+                {[["Vendas",s.vendas,m.vendas,"#22c55e"],["Propostas",s.propostas,m.propostas,"#f59e0b"],["Visitas",s.visitas,m.visitas,"#8b5cf6"]].map(([l,a,mt,c])=>(
+                  <div key={l}><div style={{fontSize:10,color:"#94a3b8"}}>{l}</div><MB atual={a} meta={mt} color={c}/></div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ── MAPA ──
+const MapaView=({leads})=>{
+  const cidades=CIDADES.map(cidade=>{const ls=leads.filter(l=>l.cidade===cidade);const v=ls.filter(l=>l.etapa==="Venda Concluída").length;return{cidade,total:ls.length,vendas:v,taxa:ls.length>0?((v/ls.length)*100).toFixed(0):0};}).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+  const max=Math.max(...cidades.map(c=>c.total),1);
+  const pos={"Joinville":{x:195,y:42},"Jaraguá do Sul":{x:170,y:60},"São Bento do Sul":{x:195,y:78},"Blumenau":{x:155,y:95},"Itajaí":{x:188,y:108},"Balneário Camboriú":{x:175,y:125},"Florianópolis":{x:185,y:155},"Tubarão":{x:163,y:195},"Criciúma":{x:175,y:215},"Rio do Sul":{x:120,y:108},"Lages":{x:115,y:148},"Chapecó":{x:38,y:115}};
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{background:"linear-gradient(135deg,#0c1a3a,#0f2d52)",border:"1px solid #1e4a7a",borderRadius:14,padding:18}}>
+        <div style={{fontSize:17,fontWeight:800,color:"#f1f5f9"}}>🗺️ Mapa de Leads — Santa Catarina</div>
+        <div style={{fontSize:12,color:"#7dd3fc",marginTop:3}}>Distribuição geográfica por cidade</div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Card>
+          <div style={{fontSize:11,fontWeight:700,color:"#f1f5f9",marginBottom:10}}>Distribuição no Estado</div>
+          <div style={{position:"relative",width:"100%",paddingBottom:"130%"}}>
+            <svg viewBox="0 0 230 300" style={{position:"absolute",top:0,left:0,width:"100%",height:"100%"}}>
+              <path d="M20,80 L50,60 L90,50 L130,40 L180,30 L210,35 L220,60 L210,100 L200,140 L190,175 L180,210 L165,235 L140,250 L100,255 L60,240 L30,210 L15,175 L10,140 L15,110 Z" fill="#1e293b" stroke="#334155" strokeWidth="1.5"/>
+              {cidades.map((c,i)=>{const p=pos[c.cidade];if(!p)return null;const r=Math.max(6,Math.min(18,(c.total/max)*18+4));const cor=parseInt(c.taxa)>=20?"#22c55e":parseInt(c.taxa)>=10?"#f59e0b":"#6366f1";return(<g key={i}><circle cx={p.x} cy={p.y} r={r} fill={cor} fillOpacity={0.7} stroke={cor} strokeWidth={1.5}/><text x={p.x} y={p.y+4} textAnchor="middle" fontSize={8} fill="white" fontWeight="800">{c.total}</text><text x={p.x} y={p.y+r+9} textAnchor="middle" fontSize={7} fill="#94a3b8">{c.cidade.split(" ")[0]}</text></g>);})}
+              <circle cx={15} cy={278} r={4} fill="#22c55e" fillOpacity={0.7}/><text x={21} y={281} fontSize={7} fill="#94a3b8">≥20%</text>
+              <circle cx={60} cy={278} r={4} fill="#f59e0b" fillOpacity={0.7}/><text x={66} y={281} fontSize={7} fill="#94a3b8">10-20%</text>
+              <circle cx={110} cy={278} r={4} fill="#6366f1" fillOpacity={0.7}/><text x={116} y={281} fontSize={7} fill="#94a3b8">&lt;10%</text>
+            </svg>
+          </div>
+        </Card>
+        <Card>
+          <div style={{fontSize:11,fontWeight:700,color:"#f1f5f9",marginBottom:10}}>Ranking por Cidade</div>
+          {cidades.length===0?<div style={{color:"#475569",fontSize:12}}>Nenhum lead com cidade informada.</div>:(
+            <div style={{display:"flex",flexDirection:"column",gap:7}}>
+              {cidades.map((c,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{width:14,fontSize:10,color:"#64748b",flexShrink:0,fontWeight:700}}>#{i+1}</span>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                      <span style={{fontSize:11,fontWeight:600,color:"#f1f5f9"}}>{c.cidade}</span>
+                      <span style={{fontSize:10,color:"#64748b"}}>{c.vendas}/{c.total} · {c.taxa}%</span>
+                    </div>
+                    <div style={{background:"#1e293b",borderRadius:4,height:7,overflow:"hidden"}}>
+                      <div style={{width:`${(c.total/max)*100}%`,background:parseInt(c.taxa)>=20?"#22c55e":parseInt(c.taxa)>=10?"#f59e0b":"#6366f1",height:"100%",borderRadius:4}}/>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+// ── MATCH DE OBRA ──
+const MatchObraView=({leads,onViewLead})=>{
+  const [nome,setNome]=useState(""); const [cidade,setCidade]=useState(""); const [tipo,setTipo]=useState(""); const [mn,setMn]=useState(""); const [mx,setMx]=useState(""); const [ok,setOk]=useState(false);
+  const pt=l=>{let p=0;if(tipo&&l.tipo_imovel===tipo)p+=40;if(cidade&&(l.cidade||"").toLowerCase().includes(cidade.toLowerCase()))p+=30;const v=Number(l.faixa_valor)||0;if(v>=Number(mn||0)&&v<=(Number(mx)||9e9)&&v>0)p+=20;const sc=calcScore(l);if(sc>=76)p+=10;else if(sc>=51)p+=7;else if(sc>=26)p+=3;return p;};
+  const res=ok?leads.map(l=>({...l,pts:pt(l)})).filter(l=>l.pts>0).sort((a,b)=>b.pts!==a.pts?b.pts-a.pts:calcScore(b)-calcScore(a)):[];
+  const qt=res.filter(l=>calcScore(l)>=51), mr=res.filter(l=>calcScore(l)>=26&&calcScore(l)<51), fr=res.filter(l=>calcScore(l)<26);
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{background:"linear-gradient(135deg,#1e1b4b,#312e81)",border:"1px solid #6366f144",borderRadius:14,padding:20}}>
+        <div style={{fontSize:17,fontWeight:800,color:"#f1f5f9"}}>🏗️ Match de Nova Obra</div>
+        <div style={{fontSize:12,color:"#a5b4fc",marginTop:3,marginBottom:16}}>Descreva a obra e encontre leads compatíveis ordenados por temperatura.</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:14}}>
+          <InpF label="Nome da Obra" value={nome} onChange={setNome} ph="Ex: Res. Veneza 2"/>
+          <InpF label="Cidade" value={cidade} onChange={setCidade} ph="Ex: Joinville"/>
+          <SelF label="Tipo de Imóvel" value={tipo} onChange={setTipo} options={TIPOS}/>
+          <InpF label="Valor Mín (R$)" value={mn} onChange={setMn} type="number" ph="300000"/>
+          <InpF label="Valor Máx (R$)" value={mx} onChange={setMx} type="number" ph="600000"/>
+        </div>
+        <button onClick={()=>setOk(true)} style={{padding:"11px 26px",borderRadius:11,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"white",cursor:"pointer",fontWeight:800,fontSize:13}}>🔍 Buscar Leads Compatíveis</button>
+      </div>
+      {ok&&(
+        <>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+            {[{l:"Total",v:res.length,c:"#6366f1"},{l:"🔥 Quentes",v:qt.length,c:"#ef4444"},{l:"🌤 Mornos",v:mr.length,c:"#f59e0b"},{l:"❄️ Frios",v:fr.length,c:"#6366f1"}].map((k,i)=>(
+              <div key={i} style={{background:"#0f172a",border:`1px solid ${k.c}33`,borderRadius:12,padding:"14px 18px",textAlign:"center"}}>
+                <div style={{fontSize:26,fontWeight:800,color:k.c}}>{k.v}</div>
+                <div style={{fontSize:11,color:"#94a3b8"}}>{k.l}</div>
+              </div>
+            ))}
+          </div>
+          {res.length===0?<div style={{textAlign:"center",padding:44,color:"#475569"}}><div style={{fontSize:32,marginBottom:9}}>🔎</div><div style={{fontSize:13}}>Nenhum lead compatível encontrado</div></div>:(
+            [{l:"🔥 Quentes — Ligue agora",ls:qt,c:"#ef4444"},{l:"🌤 Mornos — Follow-up",ls:mr,c:"#f59e0b"},{l:"❄️ Frios — Aquecimento futuro",ls:fr,c:"#6366f1"}].map(({l,ls,c})=>ls.length>0&&(
+              <div key={l}>
+                <h3 style={{color:c,fontSize:13,fontWeight:700,marginBottom:8}}>{l} ({ls.length})</h3>
+                <div style={{display:"flex",flexDirection:"column",gap:7}}>
+                  {ls.map((lead,i)=>{const sc=calcScore(lead);return(
+                    <div key={i} onClick={()=>onViewLead(lead)} style={{background:"#0f172a",border:`1px solid ${c}33`,borderRadius:11,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.borderColor=c} onMouseLeave={e=>e.currentTarget.style.borderColor=c+"33"}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{width:36,height:36,borderRadius:"50%",flexShrink:0,background:`linear-gradient(135deg,${c}66,${c})`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,color:"white",fontSize:15}}>{lead.nome[0]}</div>
+                        <div><div style={{fontSize:13,fontWeight:700,color:"#f1f5f9"}}>{lead.nome}</div><div style={{fontSize:10,color:"#64748b"}}>{lead.telefone}{lead.cidade?` · ${lead.cidade}`:""} · {lead.tipo_imovel||"—"}</div></div>
+                      </div>
+                      <div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
+                        <Bdg text={lead.etapa} color={CE[lead.etapa]} sz={9}/><ScoreMeter sc={sc}/>
+                        {lead.faixa_valor>0&&<span style={{fontSize:11,fontWeight:700,color:"#22c55e"}}>{fmt(lead.faixa_valor)}</span>}
+                        <span style={{fontSize:9,background:`${c}22`,color:c,padding:"2px 7px",borderRadius:20,fontWeight:700}}>{lead.pts}pts</span>
+                      </div>
+                    </div>
+                  );})}
+                </div>
+              </div>
+            ))
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+// ── COMPARATIVO ──
+const ComparativoView=({leads})=>{
+  const stats=EMPS.map(emp=>{const ls=leads.filter(l=>l.empreendimento===emp);const v=ls.filter(l=>l.etapa==="Venda Concluída");return{emp,total:ls.length,visitas:ls.filter(l=>l.visitou).length,propostas:ls.filter(l=>["Proposta Enviada","Negociação","Reserva","Contrato","Venda Concluída"].includes(l.etapa)).length,reservas:ls.filter(l=>["Reserva","Contrato","Venda Concluída"].includes(l.etapa)).length,vendas:v.length,taxa:ls.length>0?((v.length/ls.length)*100).toFixed(1):0,vgv:v.reduce((a,l)=>a+(Number(l.faixa_valor)||0),0)};}).filter(e=>e.total>0).sort((a,b)=>b.total-a.total);
+  const maxT=Math.max(...stats.map(s=>s.total),1);
+  const Rk=({label,items,color,vk})=>(
+    <div style={{background:"#1e293b",borderRadius:10,padding:12}}>
+      <div style={{fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase",marginBottom:8}}>🏆 {label}</div>
+      {[...items].sort((a,b)=>Number(b[vk])-Number(a[vk])).slice(0,3).map((s,i)=>(
+        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:i<2?"1px solid #0f172a":"none"}}>
+          <span style={{fontSize:11,color:"#f1f5f9"}}>{i===0?"🥇":i===1?"🥈":"🥉"} {s.emp.replace("Residencial ","Res. ")}</span>
+          <span style={{fontSize:11,fontWeight:700,color}}>{vk==="vgv"?fmt(s[vk]):s[vk]}{vk==="taxa"?"%":""}</span>
+        </div>
+      ))}
+    </div>
+  );
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{fontSize:17,fontWeight:800,color:"#f1f5f9"}}>🏆 Comparativo de Empreendimentos</div>
+      {stats.length===0?<div style={{textAlign:"center",padding:44,color:"#475569",fontSize:13}}>Nenhum lead vinculado a empreendimento ainda.</div>:(
+        <>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+            <Rk label="Mais Leads" items={stats} color="#6366f1" vk="total"/>
+            <Rk label="Mais Vendas" items={stats} color="#22c55e" vk="vendas"/>
+            <Rk label="Maior Conversão" items={stats} color="#f59e0b" vk="taxa"/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+            <Rk label="Mais Visitas" items={stats} color="#8b5cf6" vk="visitas"/>
+            <Rk label="Mais Propostas" items={stats} color="#f97316" vk="propostas"/>
+            <Rk label="Maior VGV" items={stats} color="#14b8a6" vk="vgv"/>
+          </div>
+          <Card>
+            <div style={{fontSize:12,fontWeight:700,color:"#f1f5f9",marginBottom:12}}>Comparativo Detalhado</div>
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",minWidth:650}}>
+                <thead><tr style={{background:"#1e293b"}}>{["Empreendimento","Leads","Visitas","Propostas","Reservas","Vendas","Conv.","VGV"].map(h=><th key={h} style={{padding:"9px 12px",textAlign:"left",fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {stats.map((s,i)=>(
+                    <tr key={i} style={{borderTop:"1px solid #1e293b"}}>
+                      <td style={{padding:"10px 12px",fontSize:12,fontWeight:600,color:"#f1f5f9"}}>{s.emp}</td>
+                      <td style={{padding:"10px 12px"}}><div style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:44,background:"#1e293b",borderRadius:3,height:5}}><div style={{width:`${(s.total/maxT)*100}%`,background:"#6366f1",height:"100%",borderRadius:3}}/></div><span style={{fontSize:11,color:"#cbd5e1"}}>{s.total}</span></div></td>
+                      <td style={{padding:"10px 12px",fontSize:11,color:"#8b5cf6",fontWeight:600}}>{s.visitas}</td>
+                      <td style={{padding:"10px 12px",fontSize:11,color:"#f59e0b",fontWeight:600}}>{s.propostas}</td>
+                      <td style={{padding:"10px 12px",fontSize:11,color:"#14b8a6",fontWeight:600}}>{s.reservas}</td>
+                      <td style={{padding:"10px 12px",fontSize:11,color:"#22c55e",fontWeight:600}}>{s.vendas}</td>
+                      <td style={{padding:"10px 12px"}}><span style={{fontSize:12,fontWeight:800,color:parseFloat(s.taxa)>=20?"#22c55e":parseFloat(s.taxa)>=10?"#f59e0b":"#ef4444"}}>{s.taxa}%</span></td>
+                      <td style={{padding:"10px 12px",fontSize:11,color:"#14b8a6",fontWeight:600}}>{fmt(s.vgv)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ── LOGIN ──
+const Login=({onLogin})=>{
+  const [u,setU]=useState(""); const [p,setP]=useState(""); const [err,setErr]=useState("");
+  const login=()=>{const k=u.toLowerCase();if(USERS[k]===p){onLogin({nome:NOMES[k],perfil:k==="admin"?"admin":"corretor"});}else setErr("Usuário ou senha incorretos.");};
+  return(
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#070d1a 0%,#0f172a 50%,#1e1b4b 100%)"}}>
+      <div style={{width:"100%",maxWidth:420,padding:20}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{width:64,height:64,borderRadius:18,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px",boxShadow:"0 8px 32px #6366f155"}}><Ico n="build" s={28} c="white"/></div>
+          <div style={{fontSize:26,fontWeight:800,color:"#f1f5f9"}}>ImobCRM</div>
+          <div style={{fontSize:12,color:"#64748b",marginTop:4}}>Dados na Nuvem · Supabase ☁️</div>
+        </div>
+        <div style={{background:"#0f172a",border:"1px solid #1e293b",borderRadius:20,padding:28}}>
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <InpF label="Usuário" value={u} onChange={setU} ph="admin"/>
+            <div style={{display:"flex",flexDirection:"column",gap:3}}>
+              <label style={{fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase"}}>Senha</label>
+              <input type="password" value={p} onChange={e=>setP(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()}
+                style={{background:"#1e293b",border:"1px solid #334155",borderRadius:10,padding:"8px 11px",color:"#f1f5f9",fontSize:12,outline:"none",width:"100%",boxSizing:"border-box"}}/>
+            </div>
+            {err&&<div style={{fontSize:11,color:"#ef4444",background:"#ef444411",borderRadius:7,padding:"7px 11px"}}>{err}</div>}
+            <button onClick={login} style={{padding:"12px",borderRadius:12,border:"none",width:"100%",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"white",cursor:"pointer",fontWeight:700,fontSize:14,boxShadow:"0 4px 20px #6366f144"}}>Entrar no Sistema</button>
+          </div>
+          <div style={{marginTop:18,padding:14,background:"#1e293b",borderRadius:12,fontSize:11,color:"#64748b"}}>
+            <div style={{fontWeight:700,marginBottom:6,color:"#94a3b8"}}>Acessos:</div>
+            <div>admin / imob2024 · henrique / 123456</div>
+            <div>carla / 123456 · kaluto / 123456 · vicenzo / 123456</div>
+            <div style={{marginTop:8,color:"#22c55e",fontWeight:600}}>☁️ Dados salvos no Supabase em tempo real</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── APP PRINCIPAL ──
+function ImobCRM(){
+  const [logado,setLogado]=useState(null);
+  const [view,setView]=useState("exec");
+  const [leads,setLeads]=useState([]);
+  const [metas,setMetas]=useState(CORRS.reduce((a,c)=>({...a,[c]:{vendas:5,vgv:2000000,visitas:20,propostas:15}}),{}));
+  const [loading,setLoading]=useState(true);
+  const [saving,setSaving]=useState(false);
+  const [savingMetas,setSavingMetas]=useState(false);
+  const [showNew,setShowNew]=useState(false);
+  const [selLead,setSelLead]=useState(null);
+  const [erroConexao,setErro]=useState(null);
+
+  useEffect(()=>{
+    if(!logado)return;
+    setLoading(true);
+    const fetch=async()=>{
+      const{data,error}=await sb.from("leads").select("*").order("created_at",{ascending:false});
+      if(error){setErro("Erro ao conectar: "+error.message);setLoading(false);return;}
+      setLeads(data||[]);setLoading(false);
+    };
+    fetch();
+    const ch=sb.channel("leads-rt").on("postgres_changes",{event:"*",schema:"public",table:"leads"},()=>fetch()).subscribe();
+    return()=>sb.removeChannel(ch);
+  },[logado]);
+
+  useEffect(()=>{
+    if(!logado)return;
+    const fetch=async()=>{
+      const{data}=await sb.from("metas").select("*");
+      if(data&&data.length>0){const m={};data.forEach(r=>{m[r.corretor]={vendas:r.vendas,vgv:r.vgv,visitas:r.visitas,propostas:r.propostas};});setMetas(m);}
+    };
+    fetch();
+  },[logado]);
+
+  const addLead=async data=>{
+    setSaving(true);
+    const novo={...data,data_cadastro:hoje(),historico:[{id:Date.now(),tipo:"Cadastro",texto:"Lead cadastrado",data:hoje(),hora:agora()}]};
+    const{error}=await sb.from("leads").insert([novo]);
+    if(error)alert("Erro ao salvar: "+error.message);
+    setSaving(false);setShowNew(false);
+  };
+
+  const updateLead=async updated=>{
+    setSaving(true);
+    const{id,...rest}=updated;
+    const{error}=await sb.from("leads").update(rest).eq("id",id);
+    if(error)alert("Erro ao atualizar: "+error.message);
+    else{setLeads(p=>p.map(l=>l.id===id?updated:l));if(selLead?.id===id)setSelLead(updated);}
+    setSaving(false);
+  };
+
+  const deleteLead=async id=>{
+    if(!window.confirm("Remover este lead?"))return;
+    const{error}=await sb.from("leads").delete().eq("id",id);
+    if(error)alert("Erro ao remover: "+error.message);
+    else setLeads(p=>p.filter(l=>l.id!==id));
+  };
+
+  const saveMetas=async m=>{
+    setSavingMetas(true);
+    for(const corretor of Object.keys(m)){
+      await sb.from("metas").upsert({corretor,...m[corretor]},{onConflict:"corretor"});
+    }
+    setMetas(m);setSavingMetas(false);
+  };
+
+  const nav=[
+    {id:"exec",label:"Executivo",icon:"exec"},
+    {id:"leads",label:"Leads",icon:"leads"},
+    {id:"kanban",label:"Kanban",icon:"kanban"},
+    {id:"gargalos",label:"Gargalos",icon:"alert"},
+    {id:"previsao",label:"Previsão",icon:"trend"},
+    {id:"metas",label:"Metas",icon:"target"},
+    {id:"mapa",label:"Mapa",icon:"map"},
+    {id:"matchobra",label:"Match de Obra",icon:"match"},
+    {id:"comparativo",label:"Comparativo",icon:"chart"},
+  ];
+
+  if(!logado)return <Login onLogin={setLogado}/>;
+
+  const paradosCount=leads.filter(l=>diasDesde(l.data_cadastro)>=10&&l.etapa!=="Venda Concluída").length;
+
+  return(
+    <div style={{fontFamily:"'DM Sans','Segoe UI',sans-serif",background:"#070d1a",minHeight:"100vh",display:"flex",color:"#f1f5f9"}}>
+      <div style={{width:210,background:"#0a0f1e",borderRight:"1px solid #1e293b",display:"flex",flexDirection:"column",padding:"18px 10px",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto"}}>
+        <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:22,paddingLeft:4}}>
+          <div style={{width:34,height:34,borderRadius:10,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 14px #6366f144"}}><Ico n="build" s={16} c="white"/></div>
+          <div><div style={{fontSize:13,fontWeight:800,color:"#f1f5f9",lineHeight:1}}>ImobCRM</div><div style={{fontSize:9,color:"#22c55e",marginTop:1}}>☁️ Supabase Online</div></div>
+        </div>
+        {paradosCount>0&&<div onClick={()=>setView("gargalos")} style={{background:"#ef444411",border:"1px solid #ef444433",borderRadius:9,padding:"7px 9px",marginBottom:10,cursor:"pointer"}}><div style={{fontSize:9,fontWeight:700,color:"#ef4444"}}>⚡ {paradosCount} leads parados &gt;10 dias</div></div>}
+        <nav style={{display:"flex",flexDirection:"column",gap:2,flex:1}}>
+          {nav.map(item=>(
+            <button key={item.id} onClick={()=>setView(item.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 9px",borderRadius:9,border:"none",cursor:"pointer",textAlign:"left",background:view===item.id?"linear-gradient(135deg,#6366f133,#8b5cf622)":"transparent",color:view===item.id?"#a5b4fc":"#64748b",borderLeft:view===item.id?"2px solid #6366f1":"2px solid transparent"}}>
+              <Ico n={item.icon} s={13} c={view===item.id?"#a5b4fc":"#64748b"}/><span style={{fontSize:11,fontWeight:view===item.id?700:500}}>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+        <button onClick={()=>setShowNew(true)} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"9px",borderRadius:11,border:"none",marginTop:8,marginBottom:9,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"white",cursor:"pointer",fontWeight:700,fontSize:11,boxShadow:"0 4px 14px #6366f144"}}><Ico n="plus" s={13}/> Novo Lead</button>
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 9px",borderRadius:9,background:"#1e293b"}}>
+          <div style={{width:28,height:28,borderRadius:"50%",background:"linear-gradient(135deg,#6366f1,#ec4899)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,flexShrink:0}}>{logado.nome[0]}</div>
+          <div style={{flex:1,minWidth:0}}><div style={{fontSize:11,fontWeight:700,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{logado.nome}</div><div style={{fontSize:9,color:"#64748b"}}>{logado.perfil}</div></div>
+          <button onClick={()=>setLogado(null)} style={{background:"none",border:"none",cursor:"pointer",display:"flex"}}><Ico n="logout" s={12} c="#475569"/></button>
+        </div>
+      </div>
+
+      <div style={{flex:1,overflow:"auto",minWidth:0}}>
+        <div style={{padding:"14px 22px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:"#070d1a",zIndex:10,borderBottom:"1px solid #1e293b"}}>
+          <div>
+            <h1 style={{fontSize:18,fontWeight:800,color:"#f1f5f9",margin:0}}>{nav.find(n=>n.id===view)?.label}</h1>
+            <p style={{fontSize:10,color:"#64748b",margin:"1px 0 0"}}>{leads.length} leads · {new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p>
+          </div>
+          <div style={{display:"flex",gap:7,alignItems:"center"}}>
+            <div style={{background:"#22c55e22",border:"1px solid #22c55e44",borderRadius:20,padding:"3px 10px",fontSize:10,color:"#22c55e",fontWeight:600,display:"flex",alignItems:"center",gap:4}}><div style={{width:5,height:5,borderRadius:"50%",background:"#22c55e"}}/> Online · Supabase</div>
+            <button onClick={()=>setShowNew(true)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 14px",borderRadius:9,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"white",cursor:"pointer",fontWeight:700,fontSize:11}}><Ico n="plus" s={12}/> Novo Lead</button>
+          </div>
+        </div>
+        <div style={{padding:"18px 22px 48px"}}>
+          {erroConexao&&<div style={{background:"#ef444411",border:"1px solid #ef4444",borderRadius:12,padding:16,marginBottom:16,color:"#ef4444",fontSize:13}}>❌ {erroConexao}<br/><small>Verifique se rodou o schema.sql no Supabase.</small></div>}
+          {loading?<Spinner msg="Carregando leads do Supabase..."/>:(
+            <>
+              {view==="exec"&&<DashExec leads={leads} onView={setSelLead} onNew={()=>setShowNew(true)}/>}
+              {view==="leads"&&<LeadsView leads={leads} onNew={()=>setShowNew(true)} onView={setSelLead} onDelete={deleteLead}/>}
+              {view==="kanban"&&<KanbanView leads={leads} onUpdate={updateLead} onView={setSelLead}/>}
+              {view==="gargalos"&&<GargalosView leads={leads}/>}
+              {view==="previsao"&&<PrevisaoView leads={leads}/>}
+              {view==="metas"&&<MetasView leads={leads} metas={metas} onSaveMetas={saveMetas} savingMetas={savingMetas}/>}
+              {view==="mapa"&&<MapaView leads={leads}/>}
+              {view==="matchobra"&&<MatchObraView leads={leads} onViewLead={setSelLead}/>}
+              {view==="comparativo"&&<ComparativoView leads={leads}/>}
+            </>
+          )}
+        </div>
+      </div>
+
+      {showNew&&<Modal title="Cadastrar Novo Lead" onClose={()=>setShowNew(false)} width={660}><LeadForm onSave={addLead} onClose={()=>setShowNew(false)} saving={saving}/></Modal>}
+      {selLead&&<Modal title={`Lead — ${selLead.nome}`} onClose={()=>setSelLead(null)} width={680}><LeadDetail lead={selLead} onUpdate={updateLead} saving={saving}/></Modal>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<ImobCRM/>);
+</script>
+</body>
+</html>
