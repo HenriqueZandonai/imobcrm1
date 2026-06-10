@@ -246,18 +246,22 @@ const LeadForm=({init={},onSave,onClose,saving})=>{
 // ── LEAD DETAIL ──
 const LeadDetail=({lead,onUpdate,saving})=>{
   const [aba,setAba]=useState("info");
+  const [editMode,setEditMode]=useState(false);
   const [nota,setNota]=useState("");
   const sc=calcScore(lead); const t=getTemp(sc);
   const hist=lead.historico||[];
   const addEvt=(tipo,texto)=>{const ev={id:Date.now(),tipo,texto,data:hoje(),hora:agora()};onUpdate({...lead,historico:[...hist,ev]});};
   const mudarEtapa=etapa=>{const ev={id:Date.now(),tipo:"Etapa",texto:`${lead.etapa} → ${etapa}`,data:hoje(),hora:agora()};onUpdate({...lead,etapa,historico:[...hist,ev]});};
+
+  if(editMode) return <LeadForm init={lead} onSave={d=>{onUpdate(d);setEditMode(false);}} onClose={()=>setEditMode(false)} saving={saving}/>;
+
   return(
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#1e293b",borderRadius:12,padding:"14px 18px"}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <div style={{width:48,height:48,borderRadius:"50%",background:`linear-gradient(135deg,${t.c}88,${t.c})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:800,color:"white"}}>{lead.nome[0]}</div>
           <div>
-            <div style={{fontSize:16,fontWeight:800,color:"#f1f5f9"}}>{lead.nome}</div>
+            <div style={{fontSize:16,fontWeight:800,color:"#f1f5f9",display:"flex",alignItems:"center",gap:8}}>{lead.nome} <button onClick={()=>setEditMode(true)} style={{background:"#0a0f1e",border:"none",borderRadius:6,padding:4,cursor:"pointer",display:"flex"}} title="Editar Informações"><Ico n="edit" s={12} c="#6366f1"/></button></div>
             <div style={{fontSize:11,color:"#64748b"}}>{lead.telefone} · {lead.cidade||"—"} · {lead.data_cadastro}</div>
             <Bdg text={lead.etapa} color={CE[lead.etapa]} sz={9}/>
           </div>
