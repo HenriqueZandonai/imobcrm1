@@ -893,12 +893,66 @@ const ComparativoView=({leads})=>{
   );
 };
 
+// ── TAREFAS DE OBRA ──
+const ObraTasksView = ({ tasks, onAdd, onToggle, onDelete, saving }) => {
+  const [obraSel, setObraSel] = useState(EMPS[0]);
+  const [novaTask, setNovaTask] = useState("");
+
+  const tObra = tasks.filter(t => t.obra === obraSel);
+  const concluidas = tObra.filter(t => t.concluida).length;
+  const pct = tObra.length > 0 ? Math.round((concluidas / tObra.length) * 100) : 0;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ background: "linear-gradient(135deg,#1e1b4b,#0f172a)", border: "1px solid #334155", borderRadius: 14, padding: 20 }}>
+        <div style={{ fontSize: 17, fontWeight: 800, color: "#f1f5f9", marginBottom: 12 }}>📋 Gestão de Atividades por Obra</div>
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+          <div style={{ flex: 1 }}><SelF label="Selecione a Obra" value={obraSel} onChange={setObraSel} options={EMPS} ph="Escolha o empreendimento..." /></div>
+          <div style={{ flex: 2, display: "flex", gap: 7 }}>
+            <input value={novaTask} onChange={e => setNovaTask(e.target.value)} placeholder="Nova tarefa (ex: Conferir concretagem, Pedir material...)"
+              onKeyDown={e => { if (e.key === "Enter" && novaTask.trim()) { onAdd(novaTask, obraSel); setNovaTask(""); } }}
+              style={{ flex: 1, background: "#1e293b", border: "1px solid #334155", borderRadius: 10, padding: "10px 14px", color: "#f1f5f9", fontSize: 13, outline: "none" }} />
+            <button onClick={() => { if (novaTask.trim()) { onAdd(novaTask, obraSel); setNovaTask(""); } }} disabled={saving}
+              style={{ padding: "0 20px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "white", cursor: "pointer", fontWeight: 700 }}>Adicionar</button>
+          </div>
+        </div>
+      </div>
+
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#f1f5f9" }}>Checklist: {obraSel}</div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>Progresso: {concluidas}/{tObra.length}</div>
+            <div style={{ width: 120, height: 6, background: "#1e293b", borderRadius: 10, overflow: "hidden" }}>
+              <div style={{ width: `${pct}%`, height: "100%", background: "#22c55e", transition: "width 0.3s" }} />
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {tObra.map(t => (
+            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: t.concluida ? "#1e293b55" : "#1e293b", borderRadius: 10, border: "1px solid #334155", opacity: t.concluida ? 0.7 : 1 }}>
+              <button onClick={() => onToggle(t)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                <div style={{ width: 20, height: 20, borderRadius: 6, border: "2px solid", borderColor: t.concluida ? "#22c55e" : "#475569", background: t.concluida ? "#22c55e" : "transparent", display: "flex", alignItems: "center", justifyItems: "center" }}>
+                  {t.concluida && <Ico n="check" s={12} c="white" />}
+                </div>
+              </button>
+              <span style={{ flex: 1, fontSize: 13, color: t.concluida ? "#64748b" : "#f1f5f9", textDecoration: t.concluida ? "line-through" : "none" }}>{t.texto}</span>
+              <button onClick={() => onDelete(t.id)} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.5 }}><Ico n="trash" s={14} c="#ef4444" /></button>
+            </div>
+          ))}
+          {tObra.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#475569", fontSize: 13 }}>Nenhuma tarefa pendente para esta obra. 🏗️</div>}
+        </div>
+      </Card>
+    </div>
+  );
+};
+
 // ── LOGIN ──
 const Login=({onLogin})=>{
   const [u,setU]=useState(""); const [p,setP]=useState(""); const [err,setErr]=useState("");
   const login=()=>{const k=u.toLowerCase();if(USERS[k]===p){onLogin({nome:NOMES[k],perfil:k==="admin"?"admin":"corretor"});}else setErr("Usuário ou senha incorretos.");};
   return(
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#070d1a 0%,#0f172a 50%,#1e1b4b 100%)"}}>
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#070d1a 0%,#0f172a 50%,#1e1b4b 100%)", padding: 20}}>
       <div style={{width:"100%",maxWidth:420,padding:20}}>
         <div style={{textAlign:"center",marginBottom:28}}>
           <div style={{width:64,height:64,borderRadius:18,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px",boxShadow:"0 8px 32px #6366f155"}}><Ico n="build" s={28} c="white"/></div>
@@ -934,6 +988,7 @@ function ImobCRM(){
   const [view,setView]=useState("exec");
   const [leads,setLeads]=useState([]);
   const [metas,setMetas]=useState(CORRS.reduce((a,c)=>({...a,[c]:{vendas:5,vgv:2000000,visitas:20,propostas:15}}),{}));
+  const [tasks, setTasks] = useState([]);
   const [loading,setLoading]=useState(true);
   const [saving,setSaving]=useState(false);
   const [savingMetas,setSavingMetas]=useState(false);
@@ -962,6 +1017,15 @@ function ImobCRM(){
     };
     fetch();
   },[logado]);
+
+  useEffect(() => {
+    if (!logado) return;
+    const fetchTasks = async () => {
+      const { data } = await sb.from("tarefas").select("*").order("created_at", { ascending: true });
+      setTasks(data || []);
+    };
+    fetchTasks();
+  }, [logado]);
 
   const addLead=async data=>{
     setSaving(true);
@@ -1003,6 +1067,24 @@ function ImobCRM(){
     setMetas(m);setSavingMetas(false);
   };
 
+  const handleAddTask = async (texto, obra) => {
+    setSaving(true);
+    const { data, error } = await sb.from("tarefas").insert([{ texto, obra, concluida: false }]).select();
+    if (!error && data) setTasks(p => [...p, data[0]]);
+    setSaving(false);
+  };
+
+  const handleToggleTask = async (task) => {
+    const { error } = await sb.from("tarefas").update({ concluida: !task.concluida }).eq("id", task.id);
+    if (!error) setTasks(p => p.map(t => t.id === task.id ? { ...t, concluida: !t.concluida } : t));
+  };
+
+  const handleDeleteTask = async (id) => {
+    if (!confirm("Excluir tarefa?")) return;
+    const { error } = await sb.from("tarefas").delete().eq("id", id);
+    if (!error) setTasks(p => p.filter(t => t.id !== id));
+  };
+
   const nav=[
     {id:"exec",label:"Executivo",icon:"exec"},
     {id:"leads",label:"Leads",icon:"leads"},
@@ -1013,6 +1095,7 @@ function ImobCRM(){
     {id:"mapa",label:"Mapa",icon:"map"},
     {id:"matchobra",label:"Match de Obra",icon:"match"},
     {id:"comparativo",label:"Comparativo",icon:"chart"},
+    {id:"obras",label:"Tarefas de Obra",icon:"check"},
   ];
 
   if(!logado)return <Login onLogin={setLogado}/>;
@@ -1066,6 +1149,7 @@ function ImobCRM(){
               {view==="mapa"&&<MapaView leads={leads}/>}
               {view==="matchobra"&&<MatchObraView leads={leads} onViewLead={setSelLead}/>}
               {view==="comparativo"&&<ComparativoView leads={leads}/>}
+              {view==="obras"&&<ObraTasksView tasks={tasks} onAdd={handleAddTask} onToggle={handleToggleTask} onDelete={handleDeleteTask} saving={saving}/>}
             </>
           )}
         </div>
