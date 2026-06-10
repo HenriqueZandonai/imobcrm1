@@ -961,7 +961,11 @@ function ImobCRM(){
 
   const addLead=async data=>{
     setSaving(true);
-    const novo={...data,data_cadastro:hoje(),historico:[{id:Date.now(),tipo:"Cadastro",texto:"Lead cadastrado",data:hoje(),hora:agora()}]};
+    const sanitizedData = {
+      ...data,
+      faixa_valor: data.faixa_valor === "" ? null : Number(data.faixa_valor)
+    };
+    const novo={...sanitizedData,data_cadastro:hoje(),historico:[{id:Date.now(),tipo:"Cadastro",texto:"Lead cadastrado",data:hoje(),hora:agora()}]};
     const{error}=await sb.from("leads").insert([novo]);
     if(error)alert("Erro ao salvar: "+error.message);
     setSaving(false);setShowNew(false);
@@ -970,7 +974,11 @@ function ImobCRM(){
   const updateLead=async updated=>{
     setSaving(true);
     const{id,...rest}=updated;
-    const{error}=await sb.from("leads").update(rest).eq("id",id);
+    const sanitizedRest = {
+      ...rest,
+      faixa_valor: rest.faixa_valor === "" ? null : (rest.faixa_valor === null ? null : Number(rest.faixa_valor))
+    };
+    const{error}=await sb.from("leads").update(sanitizedRest).eq("id",id);
     if(error)alert("Erro ao atualizar: "+error.message);
     else{setLeads(p=>p.map(l=>l.id===id?updated:l));if(selLead?.id===id)setSelLead(updated);}
     setSaving(false);
