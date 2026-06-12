@@ -381,6 +381,7 @@ const LeadForm=({init={},onSave,onClose,saving})=>{
         <button onClick={()=>{if(!f.nome||!f.telefone){alert("Nome e telefone obrigatórios!");return;}onSave(f);}} disabled={saving}
           style={{padding:"9px 22px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"white",cursor:saving?"wait":"pointer",fontWeight:700,fontSize:12,opacity:saving?0.7:1}}>
           {saving?"Salvando...":"Salvar Lead"}
+          {saving?"Salvando...":init.id?"Atualizar Lead":"Salvar Lead"}
         </button>
       </div>
     </div>
