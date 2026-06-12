@@ -641,17 +641,17 @@ const LeadsView=({leads,onNew,onView,onDelete})=>{
       <div style={{background:"#0f172a",border:"1px solid #1e293b",borderRadius:14,overflow:"hidden"}}>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",minWidth:800}}>
-            <thead><tr style={{background:"#1e293b"}}>{["Lead","Temp.","Empreendimento","Tipo","Etapa","Corretor","Valor","Dias","Ações"].map(h=><th key={h} style={{padding:"10px 13px",textAlign:"left",fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
             <thead>
               <tr style={{background:"#1e293b"}}>
                 {[
                   {l:"Lead",k:"nome"},{l:"Temp.",k:"temp"},{l:"Empreendimento",k:"empreendimento"},
                   {l:"Tipo",k:"tipo_imovel"},{l:"Etapa",k:"etapa"},{l:"Corretor",k:"corretor"},
-                  {l:"Valor",k:"valor"},{l:"Dias",k:"dias"},{l:"Ações",k:null}
+                  {l:"Valor",k:"valor"},{l:"Dias",k:"dias"},{l:"Ações",k:""}
                 ].map(c=>(
                   <th key={c.l} onClick={()=>toggleSort(c.k)} style={{padding:"10px 13px",textAlign:"left",fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase",whiteSpace:"nowrap",cursor:c.k?"pointer":"default"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:4}}>
-                      {c.l} {sort.key===c.k&&(sort.dir==="asc"?"↑":"↓")}
+                    <div style={{display:"flex",alignItems:"center",gap:6,userSelect:"none"}}>
+                      {c.l}
+                      <span style={{fontSize:10,color:sort.key===c.k?"#6366f1":"#334155"}}>{sort.key===c.k?(sort.dir==="asc"?"↑":"↓"):"↕"}</span>
                     </div>
                   </th>
                 ))}
