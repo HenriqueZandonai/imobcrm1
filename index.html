@@ -590,9 +590,7 @@ const DashExec=({leads,onView,onNew})=>{
 // ── LEADS VIEW ──
 const LeadsView=({leads,onNew,onView,onDelete})=>{
   const [q,setQ]=useState(""); const [fE,setFE]=useState(""); const [fT,setFT]=useState(""); const [fC,setFC]=useState(""); const [fEt,setFEt]=useState(""); const [fTp,setFTp]=useState("");
-  const fl=useMemo(()=>leads.filter(l=>{
   const [sort,setSort]=useState({key:"nome",dir:"asc"});
-
   const filtered=useMemo(()=>leads.filter(l=>{
     const mQ=!q||l.nome.toLowerCase().includes(q.toLowerCase())||l.telefone.includes(q)||(l.cidade||"").toLowerCase().includes(q.toLowerCase());
     const sc=calcScore(l); const tl=getTemp(sc).l;
