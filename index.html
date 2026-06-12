@@ -591,10 +591,37 @@ const DashExec=({leads,onView,onNew})=>{
 const LeadsView=({leads,onNew,onView,onDelete})=>{
   const [q,setQ]=useState(""); const [fE,setFE]=useState(""); const [fT,setFT]=useState(""); const [fC,setFC]=useState(""); const [fEt,setFEt]=useState(""); const [fTp,setFTp]=useState("");
   const fl=useMemo(()=>leads.filter(l=>{
+  const [sort,setSort]=useState({key:"nome",dir:"asc"});
+
+  const filtered=useMemo(()=>leads.filter(l=>{
     const mQ=!q||l.nome.toLowerCase().includes(q.toLowerCase())||l.telefone.includes(q)||(l.cidade||"").toLowerCase().includes(q.toLowerCase());
     const sc=calcScore(l); const tl=getTemp(sc).l;
     return mQ&&(!fE||l.empreendimento===fE)&&(!fT||l.tipo_imovel===fT)&&(!fC||l.corretor===fC)&&(!fEt||l.etapa===fEt)&&(!fTp||tl===fTp);
   }),[leads,q,fE,fT,fC,fEt,fTp]);
+
+  const fl=useMemo(()=>{
+    return [...filtered].sort((a,b)=>{
+      let aV,bV;
+      if(sort.key==="temp"){
+        const o=["Frio","Morno","Quente","Muito Quente"];
+        aV=o.indexOf(getTemp(calcScore(a)).l); bV=o.indexOf(getTemp(calcScore(b)).l);
+      }else if(sort.key==="valor"){
+        aV=Number(a.faixa_valor)||0; bV=Number(b.faixa_valor)||0;
+      }else if(sort.key==="dias"){
+        aV=diasDesde(a.data_cadastro); bV=diasDesde(b.data_cadastro);
+      }else if(sort.key==="etapa"){
+        aV=ETAPAS.indexOf(a.etapa); bV=ETAPAS.indexOf(b.etapa);
+      }else{
+        aV=(a[sort.key]||"").toString().toLowerCase(); bV=(b[sort.key]||"").toString().toLowerCase();
+      }
+      if(aV<bV)return sort.dir==="asc"?-1:1;
+      if(aV>bV)return sort.dir==="asc"?1:-1;
+      return 0;
+    });
+  },[filtered,sort]);
+
+  const toggleSort=k=>{if(!k)return;setSort(p=>({key:k,dir:p.key===k&&p.dir==="asc"?"desc":"asc"}));};
+
   return(
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center"}}>
@@ -617,6 +644,21 @@ const LeadsView=({leads,onNew,onView,onDelete})=>{
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",minWidth:800}}>
             <thead><tr style={{background:"#1e293b"}}>{["Lead","Temp.","Empreendimento","Tipo","Etapa","Corretor","Valor","Dias","Ações"].map(h=><th key={h} style={{padding:"10px 13px",textAlign:"left",fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+            <thead>
+              <tr style={{background:"#1e293b"}}>
+                {[
+                  {l:"Lead",k:"nome"},{l:"Temp.",k:"temp"},{l:"Empreendimento",k:"empreendimento"},
+                  {l:"Tipo",k:"tipo_imovel"},{l:"Etapa",k:"etapa"},{l:"Corretor",k:"corretor"},
+                  {l:"Valor",k:"valor"},{l:"Dias",k:"dias"},{l:"Ações",k:null}
+                ].map(c=>(
+                  <th key={c.l} onClick={()=>toggleSort(c.k)} style={{padding:"10px 13px",textAlign:"left",fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase",whiteSpace:"nowrap",cursor:c.k?"pointer":"default"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:4}}>
+                      {c.l} {sort.key===c.k&&(sort.dir==="asc"?"↑":"↓")}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
             <tbody>
               {fl.map((lead,i)=>{
                 const sc=calcScore(lead); const tp=getTemp(sc); const d=diasDesde(lead.data_cadastro);
