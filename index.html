@@ -1002,7 +1002,15 @@ function ImobCRM(){
     const fetch=async()=>{
       const{data,error}=await sb.from("leads").select("*").order("created_at",{ascending:false});
       if(error){setErro("Erro ao conectar: "+error.message);setLoading(false);return;}
-      setLeads(data||[]);setLoading(false);
+      
+      const dbLeads = data || [];
+      const combined = [...dbLeads];
+      
+      LEADS_PADRAO.forEach(lp => {
+        if (!dbLeads.find(dl => dl.telefone === lp.telefone)) combined.push({...lp, id: 'planilha-' + lp.telefone});
+      });
+
+      setLeads(combined);setLoading(false);
     };
     fetch();
     const ch=sb.channel("leads-rt").on("postgres_changes",{event:"*",schema:"public",table:"leads"},()=>fetch()).subscribe();
