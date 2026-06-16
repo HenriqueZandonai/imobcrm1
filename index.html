@@ -1486,8 +1486,8 @@ function ImobCRM(){
               {view==="mapa"&&<MapaView leads={leads}/>}
               {view==="matchobra"&&<MatchObraView leads={leads} onViewLead={setSelLead}/>}
               {view==="comparativo"&&<ComparativoView leads={leads}/>}
-              {view==="obras"&&<ObraTasksView tasks={tasks} onAdd={handleAddTask} onToggle={handleToggleTask} onDelete={handleDeleteTask} saving={saving}/>}
-              {view==="vendas"&&<UnidadesView leads={leads} residencias={residencias} unidades={unidades} onAddRes={handleAddRes} onDelRes={handleDelRes} onUpdUni={handleUpdUni} saving={saving} resSel={resSel} setResSel={setResSel}/>}
+            {view==="obras"&&<ObraTasksView tasks={tasks} onAdd={handleAddTask} onToggle={handleToggleTask} onDelete={handleDeleteTask} saving={saving}/>}
+            {view==="vendas"&&<UnidadesView leads={leads} residencias={residencias} unidades={unidades} onAddRes={handleAddRes} onDelRes={handleDelRes} onUpdUni={handleUpdUni} saving={saving} resSel={resSel} setResSel={setResSel}/>}
             </>
           )}
         </div>
