@@ -1225,8 +1225,6 @@ const UnidadesView = ({ leads, residencias, unidades, onAddRes, onDelRes, onUpdU
       {showAddRes && (
         <Modal title="Novo Residencial" onClose={() => setShowAddRes(false)} width={350}>
           <InpF label="Nome do Empreendimento" value={novoRes} onChange={setNovoRes} ph="Ex: Residencial Aurora" />
-          <button onClick={() => { onAddRes(novoRes); setNovoRes(""); setShowAddRes(false); }} 
-          <button onClick={async () => { if(!novoRes.trim()) return alert("Digite o nome!"); await onAddRes(novoRes); setNovoRes(""); setShowAddRes(false); }} 
           <button onClick={async () => { if(!novoRes.trim()) return alert("Digite o nome!"); await onAddRes(novoRes); setNovoRes(""); setShowAddRes(false); }}
             style={{ width: "100%", marginTop: 15, padding: 12, borderRadius: 10, border: "none", background: "#6366f1", color: "white", fontWeight: 700, cursor: "pointer" }}>Criar Residencial</button>
         </Modal>
@@ -1358,22 +1356,18 @@ function ImobCRM(){
       ...rest,
       faixa_valor: rest.faixa_valor === "" ? null : (rest.faixa_valor === null ? null : Number(rest.faixa_valor))
     };
-    const{error}=await sb.from("leads").update(sanitizedRest).eq("id",id);
-    if(error)alert("Erro ao atualizar: "+error.message);
-    else{setLeads(p=>p.map(l=>l.id===id?updated:l));if(selLead?.id===id)setSelLead(updated);}
 
-    // CORREÇÃO UUID: Se o ID vier da planilha, fazemos um INSERT em vez de UPDATE
+    // Se o ID vier da planilha, ele não existe no DB, então usamos INSERT
     if (id && String(id).startsWith('planilha-')) {
       const { data, error } = await sb.from("leads").insert([sanitizedRest]).select();
       if (error) {
-        alert("Erro ao converter lead da planilha para o banco: " + error.message);
+        alert("Erro ao salvar lead no banco: " + error.message);
       } else if (data) {
-        // Substitui o lead local pelo lead real do banco (com ID UUID)
         setLeads(p => p.map(l => l.id === id ? data[0] : l));
         if (selLead?.id === id) setSelLead(data[0]);
       }
     } else {
-      const{error}=await sb.from("leads").update(sanitizedRest).eq("id",id);
+      const { error } = await sb.from("leads").update(sanitizedRest).eq("id", id);
       if(error) alert("Erro ao atualizar: " + error.message);
       else {
         setLeads(p=>p.map(l=>l.id===id?updated:l));
@@ -1511,8 +1505,6 @@ function ImobCRM(){
               {view==="mapa"&&<MapaView leads={leads}/>}
               {view==="matchobra"&&<MatchObraView leads={leads} onViewLead={setSelLead}/>}
               {view==="comparativo"&&<ComparativoView leads={leads}/>}
-            {view==="obras"&&<ObraTasksView tasks={tasks} onAdd={handleAddTask} onToggle={handleToggleTask} onDelete={handleDeleteTask} saving={saving}/>}
-            {view==="vendas"&&<UnidadesView leads={leads} residencias={residencias} unidades={unidades} onAddRes={handleAddRes} onDelRes={handleDelRes} onUpdUni={handleUpdUni} saving={saving} resSel={resSel} setResSel={setResSel}/>}
               {view==="obras"&&<ObraTasksView tasks={tasks} onAdd={handleAddTask} onToggle={handleToggleTask} onDelete={handleDeleteTask} saving={saving}/>}
               {view==="vendas"&&<UnidadesView leads={leads} residencias={residencias} unidades={unidades} onAddRes={handleAddRes} onDelRes={handleDelRes} onUpdUni={handleUpdUni} saving={saving} resSel={resSel} setResSel={setResSel}/>}
             </>
