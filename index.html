@@ -1132,30 +1132,34 @@ const ObraTasksView = ({ tasks, onAdd, onToggle, onDelete, saving }) => {
 };
 
 // ── UNIDADES E COMPRADORES ──
-const UnidadesView = ({ leads, residencias, unidades, onAddRes, onDelRes, onAddUni, onUpdUni, saving }) => {
-  const [resSel, setResSel] = useState(residencias[0]?.id || "");
+const UnidadesView = ({ leads, residencias, unidades, onAddRes, onDelRes, onUpdUni, saving, resSel, setResSel }) => {
   const [showAddRes, setShowAddRes] = useState(false);
   const [showUnitForm, setShowUnitForm] = useState(null);
   const [novoRes, setNovoRes] = useState("");
 
-  const resAtual = residencias.find(r => r.id == resSel);
+  const resAtual = residencias.find(r => String(r.id) === String(resSel));
   const unisDaObra = unidades.filter(u => u.residencia_id == resSel).sort((a,b) => a.numero.localeCompare(b.numero, undefined, {numeric: true}));
 
   const UnitForm = ({ unit, onClose }) => {
-    const [f, setF] = useState(unit || { numero: "", status: "Disponível", preco: "", detalhes: "", lead_id: "" });
+    const [f, setF] = useState(unit || { numero: "", status: "Disponível", preco: "", metragem: "", detalhes: "", lead_id: "" });
     return (
       <Modal title={unit?.id ? `Editar Unidade ${unit.numero}` : "Nova Unidade"} onClose={onClose} width={400}>
         <div style={{display:"flex", flexDirection:"column", gap: 12}}>
           <InpF label="Número/Identificação" value={f.numero} onChange={v => setF({...f, numero: v})} />
           <SelF label="Status" value={f.status} onChange={v => setF({...f, status: v})} options={["Disponível", "Vendido"]} />
-          <InpF label="Preço (R$)" type="number" value={f.preco} onChange={v => setF({...f, preco: v})} />
+          <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10}}>
+            <InpF label="Preço (R$)" type="number" value={f.preco} onChange={v => setF({...f, preco: v})} />
+            <InpF label="Metragem (m²)" type="number" value={f.metragem} onChange={v => setF({...f, metragem: v})} />
+          </div>
           {f.status === "Vendido" && (
             <SelF label="Comprador (Lead)" value={f.lead_id} onChange={v => setF({...f, lead_id: v})} options={leads.map(l => l.nome)} ph="Selecione o comprador..." />
           )}
-          <textarea placeholder="Detalhes adicionais..." value={f.detalhes} onChange={e => setF({...f, detalhes: e.target.value})} 
+          <textarea placeholder="Características (ex: 3 quartos, sacada com churrasqueira...)" value={f.detalhes} onChange={e => setF({...f, detalhes: e.target.value})} 
             style={{background:"#1e293b", border:"1px solid #334155", borderRadius:10, padding:10, color:"#f1f5f9", fontSize:12, minHeight:80}} />
           <button onClick={() => { onUpdUni({...f, residencia_id: resSel}); onClose(); }} 
-            style={{padding:12, borderRadius:10, border:"none", background:"#6366f1", color:"white", fontWeight:700, cursor:"pointer"}}>Salvar Unidade</button>
+            style={{padding:12, borderRadius:10, border:"none", background:"linear-gradient(135deg,#6366f1,#8b5cf6)", color:"white", fontWeight:700, cursor:"pointer"}}>
+            {unit?.id ? "Atualizar Unidade" : "Adicionar à Obra"}
+          </button>
         </div>
       </Modal>
     );
@@ -1165,9 +1169,14 @@ const UnidadesView = ({ leads, residencias, unidades, onAddRes, onDelRes, onAddU
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 16, padding: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <SelF label="Selecionar Residencial" value={resSel} onChange={setResSel} 
-              options={residencias.map(r => ({ label: r.nome, value: r.id }))} />
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 12 }}>
+            <div style={{minWidth:200}}>
+              <label style={{fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase", display:"block", marginBottom:4}}>Selecionar Residencial</label>
+              <select value={resSel} onChange={e => setResSel(e.target.value)} style={{background:"#1e293b", border:"1px solid #334155", borderRadius:10, padding:"8px 11px", color:"#f1f5f9", fontSize:12, width:"100%"}}>
+                <option value="">Escolha um residencial...</option>
+                {residencias.map(r => <option key={r.id} value={r.id}>{r.nome}</option>)}
+              </select>
+            </div>
             <button onClick={() => setShowAddRes(true)} style={{ marginTop: 15, background: "#22c55e22", border: "1px solid #22c55e", color: "#22c55e", borderRadius: 8, padding: "8px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>+ Novo Residencial</button>
           </div>
           {resSel && (
@@ -1185,7 +1194,6 @@ const UnidadesView = ({ leads, residencias, unidades, onAddRes, onDelRes, onAddU
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
               {unisDaObra.map(u => {
                 const isVendido = u.status === "Vendido";
-                const comprador = leads.find(l => l.nome === u.lead_id);
                 return (
                   <div key={u.id} onClick={() => setShowUnitForm(u)} style={{ 
                     background: isVendido ? "#ef444411" : "#22c55e11", 
@@ -1193,6 +1201,7 @@ const UnidadesView = ({ leads, residencias, unidades, onAddRes, onDelRes, onAddU
                     borderRadius: 12, padding: 12, cursor: "pointer", transition: "0.2s"
                   }}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: "#f1f5f9" }}>Unidade {u.numero}</div>
+                    <div style={{ fontSize: 10, color: "#94a3b8" }}>{u.metragem ? `${u.metragem}m²` : "— m²"}</div>
                     <div style={{ marginTop: 4 }}><Bdg text={u.status} color={isVendido ? "#ef4444" : "#22c55e"} sz={8} /></div>
                     {isVendido ? (
                       <div style={{ marginTop: 8 }}>
@@ -1275,6 +1284,7 @@ function ImobCRM(){
   const [savingMetas,setSavingMetas]=useState(false);
   const [showNew,setShowNew]=useState(false);
   const [selLead,setSelLead]=useState(null);
+  const [resSel, setResSel] = useState("");
   const [erroConexao,setErro]=useState(null);
 
   useEffect(()=>{
@@ -1477,7 +1487,7 @@ function ImobCRM(){
               {view==="matchobra"&&<MatchObraView leads={leads} onViewLead={setSelLead}/>}
               {view==="comparativo"&&<ComparativoView leads={leads}/>}
               {view==="obras"&&<ObraTasksView tasks={tasks} onAdd={handleAddTask} onToggle={handleToggleTask} onDelete={handleDeleteTask} saving={saving}/>}
-              {view==="vendas"&&<UnidadesView leads={leads} residencias={residencias} unidades={unidades} onAddRes={handleAddRes} onDelRes={handleDelRes} onUpdUni={handleUpdUni} saving={saving}/>}
+              {view==="vendas"&&<UnidadesView leads={leads} residencias={residencias} unidades={unidades} onAddRes={handleAddRes} onDelRes={handleDelRes} onUpdUni={handleUpdUni} saving={saving} resSel={resSel} setResSel={setResSel}/>}
             </>
           )}
         </div>
