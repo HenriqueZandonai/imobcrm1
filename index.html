@@ -380,7 +380,6 @@ const LeadForm=({init={},onSave,onClose,saving})=>{
         <button onClick={onClose} style={{padding:"9px 18px",borderRadius:10,border:"1px solid #334155",background:"transparent",color:"#94a3b8",cursor:"pointer",fontWeight:600,fontSize:12}}>Cancelar</button>
         <button onClick={()=>{if(!f.nome||!f.telefone){alert("Nome e telefone obrigatórios!");return;}onSave(f);}} disabled={saving}
           style={{padding:"9px 22px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"white",cursor:saving?"wait":"pointer",fontWeight:700,fontSize:12,opacity:saving?0.7:1}}>
-          {saving?"Salvando...":"Salvar Lead"}
           {saving?"Salvando...":init.id?"Atualizar Lead":"Salvar Lead"}
         </button>
       </div>
@@ -1132,6 +1131,101 @@ const ObraTasksView = ({ tasks, onAdd, onToggle, onDelete, saving }) => {
   );
 };
 
+// ── UNIDADES E COMPRADORES ──
+const UnidadesView = ({ leads, residencias, unidades, onAddRes, onDelRes, onAddUni, onUpdUni, saving }) => {
+  const [resSel, setResSel] = useState(residencias[0]?.id || "");
+  const [showAddRes, setShowAddRes] = useState(false);
+  const [showUnitForm, setShowUnitForm] = useState(null);
+  const [novoRes, setNovoRes] = useState("");
+
+  const resAtual = residencias.find(r => r.id == resSel);
+  const unisDaObra = unidades.filter(u => u.residencia_id == resSel).sort((a,b) => a.numero.localeCompare(b.numero, undefined, {numeric: true}));
+
+  const UnitForm = ({ unit, onClose }) => {
+    const [f, setF] = useState(unit || { numero: "", status: "Disponível", preco: "", detalhes: "", lead_id: "" });
+    return (
+      <Modal title={unit?.id ? `Editar Unidade ${unit.numero}` : "Nova Unidade"} onClose={onClose} width={400}>
+        <div style={{display:"flex", flexDirection:"column", gap: 12}}>
+          <InpF label="Número/Identificação" value={f.numero} onChange={v => setF({...f, numero: v})} />
+          <SelF label="Status" value={f.status} onChange={v => setF({...f, status: v})} options={["Disponível", "Vendido"]} />
+          <InpF label="Preço (R$)" type="number" value={f.preco} onChange={v => setF({...f, preco: v})} />
+          {f.status === "Vendido" && (
+            <SelF label="Comprador (Lead)" value={f.lead_id} onChange={v => setF({...f, lead_id: v})} options={leads.map(l => l.nome)} ph="Selecione o comprador..." />
+          )}
+          <textarea placeholder="Detalhes adicionais..." value={f.detalhes} onChange={e => setF({...f, detalhes: e.target.value})} 
+            style={{background:"#1e293b", border:"1px solid #334155", borderRadius:10, padding:10, color:"#f1f5f9", fontSize:12, minHeight:80}} />
+          <button onClick={() => { onUpdUni({...f, residencia_id: resSel}); onClose(); }} 
+            style={{padding:12, borderRadius:10, border:"none", background:"#6366f1", color:"white", fontWeight:700, cursor:"pointer"}}>Salvar Unidade</button>
+        </div>
+      </Modal>
+    );
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 16, padding: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <SelF label="Selecionar Residencial" value={resSel} onChange={setResSel} 
+              options={residencias.map(r => ({ label: r.nome, value: r.id }))} />
+            <button onClick={() => setShowAddRes(true)} style={{ marginTop: 15, background: "#22c55e22", border: "1px solid #22c55e", color: "#22c55e", borderRadius: 8, padding: "8px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>+ Novo Residencial</button>
+          </div>
+          {resSel && (
+            <button onClick={() => onDelRes(resSel)} style={{ background: "#ef444422", border: "1px solid #ef4444", color: "#ef4444", borderRadius: 8, padding: "8px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Excluir Residencial</button>
+          )}
+        </div>
+
+        {resSel ? (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 800, color: "#f1f5f9" }}>🏢 {resAtual?.nome}</h3>
+              <button onClick={() => setShowUnitForm({})} style={{ background: "#6366f1", color: "white", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>+ Adicionar Unidade</button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+              {unisDaObra.map(u => {
+                const isVendido = u.status === "Vendido";
+                const comprador = leads.find(l => l.nome === u.lead_id);
+                return (
+                  <div key={u.id} onClick={() => setShowUnitForm(u)} style={{ 
+                    background: isVendido ? "#ef444411" : "#22c55e11", 
+                    border: `1px solid ${isVendido ? "#ef444444" : "#22c55e44"}`,
+                    borderRadius: 12, padding: 12, cursor: "pointer", transition: "0.2s"
+                  }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: "#f1f5f9" }}>Unidade {u.numero}</div>
+                    <div style={{ marginTop: 4 }}><Bdg text={u.status} color={isVendido ? "#ef4444" : "#22c55e"} sz={8} /></div>
+                    {isVendido ? (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 9, color: "#94a3b8", textTransform: "uppercase" }}>Comprador</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#f1f5f9", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.lead_id || "Não informado"}</div>
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: "#22c55e" }}>{u.preco ? fmt(Number(u.preco)) : "Consultar"}</div>
+                    )}
+                  </div>
+                );
+              })}
+              {unisDaObra.length === 0 && <div style={{ gridColumn: "1/-1", textAlign: "center", padding: 40, color: "#475569" }}>Nenhuma unidade cadastrada neste residencial.</div>}
+            </div>
+          </>
+        ) : (
+          <div style={{ textAlign: "center", padding: 60, color: "#64748b" }}>Selecione um residencial para gerenciar as unidades.</div>
+        )}
+      </div>
+
+      {showAddRes && (
+        <Modal title="Novo Residencial" onClose={() => setShowAddRes(false)} width={350}>
+          <InpF label="Nome do Empreendimento" value={novoRes} onChange={setNovoRes} ph="Ex: Residencial Aurora" />
+          <button onClick={() => { onAddRes(novoRes); setNovoRes(""); setShowAddRes(false); }} 
+            style={{ width: "100%", marginTop: 15, padding: 12, borderRadius: 10, border: "none", background: "#6366f1", color: "white", fontWeight: 700, cursor: "pointer" }}>Criar Residencial</button>
+        </Modal>
+      )}
+
+      {showUnitForm && <UnitForm unit={showUnitForm.id ? showUnitForm : null} onClose={() => setShowUnitForm(null)} />}
+    </div>
+  );
+};
+
 // ── LOGIN ──
 const Login=({onLogin})=>{
   const [u,setU]=useState(""); const [p,setP]=useState(""); const [err,setErr]=useState("");
@@ -1174,6 +1268,8 @@ function ImobCRM(){
   const [leads,setLeads]=useState([]);
   const [metas,setMetas]=useState(CORRS.reduce((a,c)=>({...a,[c]:{vendas:5,vgv:2000000,visitas:20,propostas:15}}),{}));
   const [tasks, setTasks] = useState([]);
+  const [residencias, setResidencias] = useState([]);
+  const [unidades, setUnidades] = useState([]);
   const [loading,setLoading]=useState(true);
   const [saving,setSaving]=useState(false);
   const [savingMetas,setSavingMetas]=useState(false);
@@ -1218,6 +1314,17 @@ function ImobCRM(){
       setTasks(data || []);
     };
     fetchTasks();
+  }, [logado]);
+
+  useEffect(() => {
+    if (!logado) return;
+    const fetchData = async () => {
+      const { data: res } = await sb.from("residencias").select("*").order("nome");
+      const { data: uni } = await sb.from("unidades").select("*");
+      setResidencias(res || []);
+      setUnidades(uni || []);
+    };
+    fetchData();
   }, [logado]);
 
   const addLead=async data=>{
@@ -1278,6 +1385,32 @@ function ImobCRM(){
     if (!error) setTasks(p => p.filter(t => t.id !== id));
   };
 
+  const handleAddRes = async (nome) => {
+    const { data, error } = await sb.from("residencias").insert([{ nome }]).select();
+    if (!error && data) setResidencias(p => [...p, data[0]]);
+  };
+
+  const handleDelRes = async (id) => {
+    if (!confirm("Isso excluirá o residencial e TODAS as suas unidades. Confirmar?")) return;
+    const { error } = await sb.from("residencias").delete().eq("id", id);
+    if (!error) {
+      setResidencias(p => p.filter(r => r.id != id));
+      setUnidades(p => p.filter(u => u.residencia_id != id));
+    }
+  };
+
+  const handleUpdUni = async (uni) => {
+    setSaving(true);
+    if (uni.id) {
+      const { error } = await sb.from("unidades").update(uni).eq("id", uni.id);
+      if (!error) setUnidades(p => p.map(u => u.id === uni.id ? uni : u));
+    } else {
+      const { data, error } = await sb.from("unidades").insert([uni]).select();
+      if (!error && data) setUnidades(p => [...p, data[0]]);
+    }
+    setSaving(false);
+  };
+
   const nav=[
     {id:"exec",label:"Executivo",icon:"exec"},
     {id:"leads",label:"Leads",icon:"leads"},
@@ -1289,6 +1422,7 @@ function ImobCRM(){
     {id:"matchobra",label:"Match de Obra",icon:"match"},
     {id:"comparativo",label:"Comparativo",icon:"chart"},
     {id:"obras",label:"Tarefas de Obra",icon:"check"},
+    {id:"vendas",label:"Unidades e Vendas",icon:"build"},
   ];
 
   if(!logado)return <Login onLogin={setLogado}/>;
@@ -1343,6 +1477,7 @@ function ImobCRM(){
               {view==="matchobra"&&<MatchObraView leads={leads} onViewLead={setSelLead}/>}
               {view==="comparativo"&&<ComparativoView leads={leads}/>}
               {view==="obras"&&<ObraTasksView tasks={tasks} onAdd={handleAddTask} onToggle={handleToggleTask} onDelete={handleDeleteTask} saving={saving}/>}
+              {view==="vendas"&&<UnidadesView leads={leads} residencias={residencias} unidades={unidades} onAddRes={handleAddRes} onDelRes={handleDelRes} onUpdUni={handleUpdUni} saving={saving}/>}
             </>
           )}
         </div>
