@@ -34,7 +34,7 @@ const sb = createClient(
 
 // ── CONSTANTES ──
 const EMPS=["Residencial Verona","Residencial Firenze","Sobrados","Residencial Milano","Residencial Veneza","Residencial Turim","Residencial Napoli"];
-const TIPOS=["Apartamento 1 quarto","Apartamento 2 quartos","Apartamento 3 quartos","Apartamento 4 quartos","Cobertura","Studio","Garden","Sobrado"];
+const TIPOS=["Apartamento 1 quarto","Apartamento 2 quartos","Apartamento 3 quartos","Apartamento 4 quartos","Cobertura","Studio","Garden","Sobrado","casa"];
 const CORRS=["Henrique","Carla","Kaluto","Vicenzo"];
 const ORIGENS=["Meta Ads","Google Ads","Site Próprio","Indicação","Instagram","Facebook","WhatsApp","Feirão","Evento","Corretor Parceiro","Outdoor","Outros"];
 const RENDAS=["Até R$ 3.000","R$ 3.001–R$ 5.000","R$ 5.001–R$ 8.000","R$ 8.001–R$ 12.000","R$ 12.001–R$ 20.000","Acima de R$ 20.000"];
@@ -343,7 +343,7 @@ const Spinner=({msg="Carregando..."})=>(
 
 // ── LEAD FORM ──
 const LeadForm=({init={},onSave,onClose,saving})=>{
-  const df={nome:"",telefone:"",cidade:"",origem:"",empreendimento:"",tipo_imovel:"",faixa_valor:"",faixa_renda:"",corretor:"",observacoes:"",etapa:"Lead Recebido",possui_entrada:false,visitou:false,responde_rapido:false,prazo_compra:""};
+const df={nome:"",telefone:"",cidade:"",origem:"",empreendimento:"",tipo_imovel:"casa",faixa_valor:"",faixa_renda:"",corretor:"",observacoes:"",etapa:"Lead Recebido",possui_entrada:false,visitou:false,responde_rapido:false,prazo_compra:""};
   const [f,setF]=useState({...df,...init});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   const sc=calcScore(f); const t=getTemp(sc);
