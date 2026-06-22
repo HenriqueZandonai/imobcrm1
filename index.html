@@ -361,7 +361,7 @@ const df={nome:"",telefone:"",cidade:"",origem:"",empreendimento:"",tipo_imovel:
         <SelF label="Empreendimento" value={f.empreendimento} onChange={set("empreendimento")} options={EMPS}/>
         <SelF label="Tipo de Imóvel" value={f.tipo_imovel} onChange={set("tipo_imovel")} options={TIPOS}/>
         <InpF label="Faixa de Valor (R$)" value={f.faixa_valor} onChange={set("faixa_valor")} type="number"/>
-        <SelF label="Renda Bruta Mensal" value={f.faixa_renda} onChange={set("faixa_renda")} options={RENDAS}/>
+        <InpF label="Renda Bruta Mensal" value={f.faixa_renda} onChange={set("faixa_renda")} type="number" ph="Ex: 3500"/>
         <SelF label="Prazo de Compra" value={f.prazo_compra} onChange={set("prazo_compra")} options={["Imediato","1-3 meses","3-6 meses","6-12 meses","Mais de 1 ano"]}/>
         <SelF label="Corretor Responsável" value={f.corretor} onChange={set("corretor")} options={CORRS}/>
         <SelF label="Etapa do Funil" value={f.etapa} onChange={set("etapa")} options={ETAPAS}/>
