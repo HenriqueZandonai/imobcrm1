@@ -1600,6 +1600,123 @@ const nav=[
   );
 }
 
+// ── VENDAS POR CORRETOR ──
+const LeadsPorCorretorView=({leads})=>{
+  const [fC,setFC]=useState("");
+  const [fTemp,setFTemp]=useState("");
+  const [q,setQ]=useState("");
+
+  const filtered=useMemo(()=>{
+    const qq=q.trim().toLowerCase();
+    return leads.filter(l=>{
+      if(fC && l.corretor!==fC) return false;
+      if(qq && !(l.nome?.toLowerCase().includes(qq) || (l.telefone||"").includes(q) || (l.cidade||"").toLowerCase().includes(qq))) return false;
+      if(fTemp){
+        const sc=calcScore(l);
+        const t=getTemp(sc).l;
+        if(t!==fTemp) return false;
+      }
+      return true;
+    });
+  },[leads,fC,fTemp,q]);
+
+  const corrRank=CORRS.map(c=>{
+    const ls=filtered.filter(l=>l.corretor===c);
+    const v=ls.filter(l=>l.etapa==="Venda Concluída");
+    const vendas=v.length;
+    const leadsCnt=ls.length;
+    const conv=leadsCnt>0 ? (vendas/leadsCnt)*100 : 0;
+    const vgv=v.reduce((a,l)=>a+(Number(l.faixa_valor)||0),0);
+    return {c,leads:leadsCnt,vendas,conv,vgv};
+  }).sort((a,b)=>b.vendas-a.vendas);
+
+  const totalLeads=filtered.length;
+  const totalVendas=filtered.filter(l=>l.etapa==="Venda Concluída").length;
+  const totalVGV=filtered.filter(l=>l.etapa==="Venda Concluída").reduce((a,l)=>a+(Number(l.faixa_valor)||0),0);
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{background:"linear-gradient(135deg,#0f172a,#1e1b4b)",border:"1px solid #1e293b",borderRadius:14,padding:18}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+          <div>
+            <div style={{fontSize:17,fontWeight:800,color:"#f1f5f9"}}>💰 Vendas por Corretor</div>
+            <div style={{fontSize:12,color:"#94a3b8",marginTop:3}}>{totalLeads} leads filtrados · {totalVendas} vendas · VGV {fmt(totalVGV)}</div>
+          </div>
+          <button
+            onClick={()=>{setFC("");setFTemp("");setQ("");}}
+            style={{padding:"8px 12px",borderRadius:10,border:"1px solid #334155",background:"transparent",color:"#94a3b8",cursor:"pointer",fontWeight:700,fontSize:12}}
+            >Limpar filtros</button>
+        </div>
+
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:14}}>
+          <div style={{flex:1,minWidth:220}}>
+            <div style={{display:"flex",alignItems:"center",gap:7,background:"#1e293b",border:"1px solid #334155",borderRadius:9,padding:"7px 12px"}}>
+              <Ico n="search" s={13} c="#64748b"/>
+              <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Buscar nome, telefone, cidade..."
+                style={{border:"none",background:"transparent",color:"#f1f5f9",fontSize:12,outline:"none",flex:1}}/>
+            </div>
+          </div>
+          <div style={{minWidth:210}}>
+            <SelF label="Corretor" value={fC} onChange={setFC} options={CORRS} ph="Todos"/>
+          </div>
+          <div style={{minWidth:210}}>
+            <SelF label="Temperatura" value={fTemp} onChange={setFTemp} options={["Muito Quente","Quente","Morno","Frio"]} ph="Todas"/>
+          </div>
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+        <KPI label="Leads" value={totalLeads} icon="leads" color="#6366f1" sub="Filtrados"/>
+        <KPI label="Vendas" value={totalVendas} icon="check" color="#22c55e" sub="Na tabela"/>
+        <KPI label="Conversão" value={`${totalLeads>0 ? ((totalVendas/totalLeads)*100).toFixed(0):0}%`} icon="target" color="#f59e0b" sub="Vendas/Leads"/>
+        <KPI label="VGV Total" value={fmt(totalVGV)} icon="dollar" color="#14b8a6" sub="Somatório"/>
+      </div>
+
+      <div style={{background:"#0f172a",border:"1px solid #1e293b",borderRadius:14,overflow:"hidden"}}>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:780}}>
+            <thead>
+              <tr style={{background:"#1e293b"}}>
+                {[{l:"Corretor"},{l:"Leads"},{l:"Vendas"},{l:"Conversão"},{l:"VGV"},{l:"Ações"}].map(h=>(
+                  <th key={h.l} style={{padding:"10px 13px",textAlign:"left",fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h.l}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {corrRank.map((r,i)=>{
+                const isTop=i===0;
+                return(
+                  <tr key={r.c} style={{borderTop:"1px solid #1e293b"}}>
+                    <td style={{padding:"10px 13px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{width:34,height:34,borderRadius:"50%",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,color:"white",fontSize:13}}>{r.c[0]}</div>
+                        <div>
+                          <div style={{fontSize:12,fontWeight:800,color:"#f1f5f9"}}>{isTop?"🥇 ":""}{r.c}</div>
+                          <div style={{fontSize:10,color:"#94a3b8"}}>{filtered.filter(l=>l.corretor===r.c && l.etapa!=='Venda Concluída').length} em andamento</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{padding:"10px 13px",fontSize:11,color:"#cbd5e1",fontWeight:700}}>{r.leads}</td>
+                    <td style={{padding:"10px 13px",fontSize:11,color:"#22c55e",fontWeight:800}}>{r.vendas}</td>
+                    <td style={{padding:"10px 13px"}}>
+                      <span style={{fontSize:11,fontWeight:800,color:r.conv>=20?"#22c55e":r.conv>=10?"#f59e0b":"#ef4444"}}>{r.conv.toFixed(0)}%</span>
+                    </td>
+                    <td style={{padding:"10px 13px",fontSize:11,fontWeight:700,color:"#14b8a6"}}>{fmt(r.vgv)}</td>
+                    <td style={{padding:"10px 13px"}}>
+                      <span style={{fontSize:10,color:"#94a3b8"}}>Temperatura média: —</span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {corrRank.length===0 && <tr><td colSpan={6} style={{padding:36,textAlign:"center",color:"#475569",fontSize:12}}>Nenhum dado.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 ReactDOM.createRoot(document.getElementById("root")).render(<ImobCRM/>);
 </script>
 </body>
