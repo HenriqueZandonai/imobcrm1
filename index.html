@@ -1520,7 +1520,7 @@ const handleAddRes = async (nome) => {
     setSaving(false);
   };
 
-  const nav=[
+const nav=[
     {id:"exec",label:"Executivo",icon:"exec"},
     {id:"leads",label:"Leads",icon:"leads"},
     {id:"kanban",label:"Kanban",icon:"kanban"},
@@ -1532,6 +1532,7 @@ const handleAddRes = async (nome) => {
     {id:"comparativo",label:"Comparativo",icon:"chart"},
     {id:"obras",label:"Tarefas de Obra",icon:"check"},
     {id:"vendas",label:"Unidades e Vendas",icon:"build"},
+    {id:"vendascorr",label:"Vendas por Corretor",icon:"dollar"},
   ];
 
   if(!logado)return <Login onLogin={setLogado}/>;
@@ -1587,6 +1588,7 @@ const handleAddRes = async (nome) => {
               {view==="comparativo"&&<ComparativoView leads={leads}/>}
               {view==="obras"&&<ObraTasksView tasks={tasks} onAdd={handleAddTask} onToggle={handleToggleTask} onDelete={handleDeleteTask} saving={saving}/>}
               {view==="vendas"&&<UnidadesView leads={leads} residencias={residencias} unidades={unidades} onAddRes={handleAddRes} onDelRes={handleDelRes} onUpdUni={handleUpdUni} saving={saving} resSel={resSel} setResSel={setResSel}/>}
+              {view==="vendascorr"&&<LeadsPorCorretorView leads={leads} />}
             </>
           )}
         </div>
