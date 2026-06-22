@@ -33,7 +33,7 @@ const sb = createClient(
 );
 
 // ── CONSTANTES ──
-const EMPS=["Residencial Verona","Residencial Firenze","Sobrados","Residencial Milano","Residencial Veneza","Residencial Turin","Residencial Napoli"];
+const EMPS=["Residencial Verona","Residencial Firenze","Sobrados","Residencial Milano","Residencial Veneza","Residencial Turim","Residencial Napoli"];
 const TIPOS=["Apartamento 1 quarto","Apartamento 2 quartos","Apartamento 3 quartos","Apartamento 4 quartos","Cobertura","Studio","Garden","Sobrado"];
 const CORRS=["Henrique","Carla","Kaluto","Vicenzo"];
 const ORIGENS=["Meta Ads","Google Ads","Site Próprio","Indicação","Instagram","Facebook","WhatsApp","Feirão","Evento","Corretor Parceiro","Outdoor","Outros"];
@@ -1299,7 +1299,8 @@ function ImobCRM(){
   const [resSel, setResSel] = useState("");
 
   // Normaliza ids de residencias para evitar mismatch number(string) entre Supabase e UI
-  const normalizeResId = (id) => (id === null || id === undefined || id === "" ? "" : String(id));
+// (mantido por compatibilidade futura; não usado no fluxo atual)
+  // const normalizeResId = (id) => (id === null || id === undefined || id === "" ? "" : String(id));
   const [erroConexao,setErro]=useState(null);
 
   useEffect(()=>{
