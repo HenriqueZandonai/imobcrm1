@@ -1425,12 +1425,22 @@ function ImobCRM(){
     if (!error) setTasks(p => p.filter(t => t.id !== id));
   };
 
-  const handleAddRes = async (nome) => {
-    const { data, error } = await sb.from("residencias").insert([{ nome }]).select();
-    if (!error && data && data[0]) {
-      setResidencias(p => [...p, data[0]]);
-      // Garantir que o novo residencial apareça na tela de “Unidades e Vendas”
-      setResSel(String(data[0].id));
+const handleAddRes = async (nome) => {
+    setSaving(true);
+    try {
+      const { data, error } = await sb.from("residencias").insert([{ nome }]).select();
+      if (error) throw error;
+      if (data && data[0]) {
+        setResidencias(p => [...p, data[0]]);
+        // Garantir que o novo residencial apareça na tela de “Unidades e Vendas”
+        setResSel(String(data[0].id));
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao criar residencial: " + (e?.message || e));
+      throw e;
+    } finally {
+      setSaving(false);
     }
   };
 
