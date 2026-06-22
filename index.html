@@ -1311,12 +1311,37 @@ function ImobCRM(){
       
       const dbLeads = data || [];
       const combined = [...dbLeads];
-      
+
       LEADS_PADRAO.forEach(lp => {
         if (!dbLeads.find(dl => dl.telefone === lp.telefone)) combined.push({...lp, id: 'planilha-' + lp.telefone});
       });
 
-      setLeads(combined);setLoading(false);
+      // Deduplica 1 lead por telefone (mantém o mais recente do Supabase via created_at)
+      const telKey = (t) => (t === null || t === undefined ? "" : String(t).trim());
+      const getCreatedAtMs = (l) => {
+        if (!l) return 0;
+        const v = l.created_at ?? l.data_cadastro;
+        if (!v) return 0;
+        const ms = typeof v === "string" ? Date.parse(v) : Number(v);
+        return Number.isFinite(ms) ? ms : 0;
+      };
+
+      const byTel = new Map();
+      for (const l of combined) {
+        const k = telKey(l.telefone);
+        if (!k) continue;
+        const cur = byTel.get(k);
+        if (!cur) {
+          byTel.set(k, l);
+          continue;
+        }
+        if (getCreatedAtMs(l) >= getCreatedAtMs(cur)) byTel.set(k, l);
+      }
+
+      // preserva também entradas sem telefone (mantém como estão)
+      const semTel = combined.filter(l => !telKey(l.telefone));
+      setLeads([...semTel, ...Array.from(byTel.values())]);
+      setLoading(false);
     };
     fetch();
     const ch=sb.channel("leads-rt").on("postgres_changes",{event:"*",schema:"public",table:"leads"},()=>fetch()).subscribe();

@@ -13,3 +13,6 @@
 - [ ] Validar carregamento após refresh (dados continuam aparecendo corretamente).
 - [ ] Testar no navegador (criar residencial -> criar unidades -> vender -> atualizar -> recarregar página).
 
+# Correção: deduplicar leads por telefone
+- [ ] Deduplicar array de leads carregados do Supabase/planilha por `telefone` mantendo o registro do Supabase mais recente (created_at).
+
