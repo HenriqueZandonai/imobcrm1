@@ -1138,7 +1138,7 @@ const UnidadesView = ({ leads, residencias, unidades, onAddRes, onDelRes, onUpdU
   const [novoRes, setNovoRes] = useState("");
 
   const resAtual = residencias.find(r => String(r.id) === String(resSel));
-  const unisDaObra = unidades.filter(u => u.residencia_id == resSel).sort((a,b) => a.numero.localeCompare(b.numero, undefined, {numeric: true}));
+  const unisDaObra = unidades
 
   const UnitForm = ({ unit, onClose }) => {
     const [f, setF] = useState(unit || { numero: "", status: "Disponível", preco: "", metragem: "", detalhes: "", lead_id: "" });
@@ -1285,6 +1285,9 @@ function ImobCRM(){
   const [showNew,setShowNew]=useState(false);
   const [selLead,setSelLead]=useState(null);
   const [resSel, setResSel] = useState("");
+
+  // Normaliza ids de residencias para evitar mismatch number(string) entre Supabase e UI
+  const normalizeResId = (id) => (id === null || id === undefined || id === "" ? "" : String(id));
   const [erroConexao,setErro]=useState(null);
 
   useEffect(()=>{
@@ -1412,7 +1415,11 @@ function ImobCRM(){
 
   const handleAddRes = async (nome) => {
     const { data, error } = await sb.from("residencias").insert([{ nome }]).select();
-    if (!error && data) setResidencias(p => [...p, data[0]]);
+    if (!error && data && data[0]) {
+      setResidencias(p => [...p, data[0]]);
+      // Garantir que o novo residencial apareça na tela de “Unidades e Vendas”
+      setResSel(String(data[0].id));
+    }
   };
 
   const handleDelRes = async (id) => {
