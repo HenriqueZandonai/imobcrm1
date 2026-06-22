@@ -37,7 +37,8 @@ const EMPS=["Residencial Verona","Residencial Firenze","Sobrados","Residencial M
 const TIPOS=["Apartamento 1 quarto","Apartamento 2 quartos","Apartamento 3 quartos","Apartamento 4 quartos","Cobertura","Studio","Garden","Sobrado","casa"];
 const CORRS=["Henrique","Carla","Kaluto","Vicenzo"];
 const ORIGENS=["Meta Ads","Google Ads","Site Próprio","Indicação","Instagram","Facebook","WhatsApp","Feirão","Evento","Corretor Parceiro","Outdoor","Outros"];
-const RENDAS=["Até R$ 3.000","R$ 3.001–R$ 5.000","R$ 5.001–R$ 8.000","R$ 8.001–R$ 12.000","R$ 12.001–R$ 20.000","Acima de R$ 20.000"];
+// (mantido apenas por compatibilidade com layouts antigos; o campo de renda agora é livre)
+const RENDAS=[];
 const ETAPAS=["Lead Recebido","Primeiro Contato","Atendimento","Interesse Confirmado","Proposta Enviada","Negociação","Reserva","Contrato","Venda Concluída"];
 const CIDADES=["Rio do Sul","Ituporanga","Aurora","Outra"];
 const CE={"Lead Recebido":"#6366f1","Primeiro Contato":"#8b5cf6","Atendimento":"#ec4899","Interesse Confirmado":"#f59e0b","Proposta Enviada":"#f97316","Negociação":"#ef4444","Reserva":"#14b8a6","Contrato":"#10b981","Venda Concluída":"#22c55e"};
@@ -198,8 +199,24 @@ const calcScore=l=>{
   let p=0;
   const es={"Lead Recebido":0,"Primeiro Contato":5,"Atendimento":10,"Interesse Confirmado":15,"Proposta Enviada":25,"Negociação":32,"Reserva":38,"Contrato":40,"Venda Concluída":40};
   p+=es[l.etapa]||0;
-  const rs={"Até R$ 3.000":5,"R$ 3.001–R$ 5.000":10,"R$ 5.001–R$ 8.000":14,"R$ 8.001–R$ 12.000":17,"R$ 12.001–R$ 20.000":19,"Acima de R$ 20.000":20};
-  p+=rs[l.faixa_renda]||0;
+
+  // Renda agora é campo livre numérico (faixa_renda). Mantém compatibilidade:
+  // se veio texto antigo, tenta extrair um número; caso contrário, usa o valor numérico.
+  const rendaRaw = l.faixa_renda;
+  const rendaNum = typeof rendaRaw === "string"
+    ? Number(String(rendaRaw).replace(/[^0-9.]/g,""))
+    : Number(rendaRaw);
+
+  if (Number.isFinite(rendaNum) && rendaNum > 0) {
+    // Faixas aproximadas (mesmas pontuações das opções antigas)
+    if (rendaNum <= 3000) p += 5;
+    else if (rendaNum <= 5000) p += 10;
+    else if (rendaNum <= 8000) p += 14;
+    else if (rendaNum <= 12000) p += 17;
+    else if (rendaNum <= 20000) p += 19;
+    else p += 20;
+  }
+
   if(l.possui_entrada)p+=10; if(l.visitou)p+=10; if(l.responde_rapido)p+=10;
   if(l.prazo_compra==="Imediato"||l.prazo_compra==="1-3 meses")p+=10;
   else if(l.prazo_compra==="3-6 meses")p+=5;
