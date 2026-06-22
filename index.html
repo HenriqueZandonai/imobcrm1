@@ -1139,6 +1139,8 @@ const UnidadesView = ({ leads, residencias, unidades, onAddRes, onDelRes, onUpdU
 
   const resAtual = residencias.find(r => String(r.id) === String(resSel));
   const unisDaObra = unidades
+    .filter(u => String(u.residencia_id) === String(resSel))
+    .sort((a,b) => (String(a.numero||"").toString()).localeCompare(String(b.numero||"").toString(), undefined, { numeric: true }));
 
   const UnitForm = ({ unit, onClose }) => {
     const [f, setF] = useState(unit || { numero: "", status: "Disponível", preco: "", metragem: "", detalhes: "", lead_id: "" });
@@ -1225,7 +1227,17 @@ const UnidadesView = ({ leads, residencias, unidades, onAddRes, onDelRes, onUpdU
       {showAddRes && (
         <Modal title="Novo Residencial" onClose={() => setShowAddRes(false)} width={350}>
           <InpF label="Nome do Empreendimento" value={novoRes} onChange={setNovoRes} ph="Ex: Residencial Aurora" />
-          <button onClick={async () => { if(!novoRes.trim()) return alert("Digite o nome!"); await onAddRes(novoRes); setNovoRes(""); setShowAddRes(false); }}
+          <button onClick={async () => {
+            if(!novoRes.trim()) return alert("Digite o nome!");
+            try{
+              await onAddRes(novoRes);
+              setNovoRes("");
+              setShowAddRes(false);
+            }catch(e){
+              console.error(e);
+              alert("Erro ao criar residencial: " + (e?.message || e));
+            }
+          }}
             style={{ width: "100%", marginTop: 15, padding: 12, borderRadius: 10, border: "none", background: "#6366f1", color: "white", fontWeight: 700, cursor: "pointer" }}>Criar Residencial</button>
         </Modal>
       )}
