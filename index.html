@@ -1428,10 +1428,35 @@ function ImobCRM(){
 const handleAddRes = async (nome) => {
     setSaving(true);
     try {
-      const { data, error } = await sb.from("residencias").insert([{ nome }]).select();
+      // Algumas bases podem ter o nome da tabela diferente (ex: residencias vs. residencia).
+      // Tentamos primeiro `residencias` e, se falhar com "not found", tentamos `residencia`.
+      const tryInsert = async (tableName) => {
+        const { data, error } = await sb.from(tableName).insert([{ nome }]).select();
+        return { data, error };
+      };
+
+      let { data, error } = await tryInsert("residencias");
+
+      if (error) {
+        // fallback opcional
+        const msg = (error && error.message) ? error.message.toLowerCase() : "";
+        const isNotFound = msg.includes("could not find the table") || msg.includes("does not exist") || msg.includes("not found");
+        if (isNotFound) {
+          const r2 = await tryInsert("residencia");
+          data = r2.data;
+          error = r2.error;
+        }
+      }
+
       if (error) throw error;
+
       if (data && data[0]) {
-        setResidencias(p => [...p, data[0]]);
+        setResidencias(p => {
+          // evita duplicar caso o realtime já tenha trazido
+          const exists = p.some(r => String(r.id) === String(data[0].id));
+          return exists ? p : [...p, data[0]];
+        });
+
         // Garantir que o novo residencial apareça na tela de “Unidades e Vendas”
         setResSel(String(data[0].id));
       }
