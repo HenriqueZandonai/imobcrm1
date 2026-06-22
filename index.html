@@ -1642,10 +1642,59 @@ const LeadsPorCorretorView=({leads})=>{
             <div style={{fontSize:17,fontWeight:800,color:"#f1f5f9"}}>💰 Vendas por Corretor</div>
             <div style={{fontSize:12,color:"#94a3b8",marginTop:3}}>{totalLeads} leads filtrados · {totalVendas} vendas · VGV {fmt(totalVGV)}</div>
           </div>
-          <button
-            onClick={()=>{setFC("");setFTemp("");setQ("");}}
-            style={{padding:"8px 12px",borderRadius:10,border:"1px solid #334155",background:"transparent",color:"#94a3b8",cursor:"pointer",fontWeight:700,fontSize:12}}
-            >Limpar filtros</button>
+          <div style={{display:"flex",gap:10,alignItems:"center"}}>
+            <button
+              onClick={()=>{setFC("");setFTemp("");setQ("");}}
+              style={{padding:"8px 12px",borderRadius:10,border:"1px solid #334155",background:"transparent",color:"#94a3b8",cursor:"pointer",fontWeight:700,fontSize:12}}
+              >Limpar filtros</button>
+
+            <button
+              onClick={()=>{
+                // Permite inserir vendas manualmente no período atual (sem alterar leads existentes)
+                const corretor = prompt("Corretor (ex: Henrique):", (CORRS.find(x=>x===fC) || CORRS[0] || ""));
+                if(!corretor) return;
+                const etapa = "Venda Concluída";
+                const faixa_valor_str = prompt("Valor (R$):", "0");
+                const faixa_valor = Number(String(faixa_valor_str).replace(/[^0-9.]/g,""));
+                const valorFinal = Number.isFinite(faixa_valor) ? faixa_valor : 0;
+                if(!valorFinal || valorFinal<=0){ alert("Informe um valor maior que 0."); return; }
+
+                const pessoa = prompt("Nome do lead (opcional):", "Venda Manual");
+                const tel = prompt("Telefone (opcional):", "");
+
+                const mkLead = (nome, telefone) => ({
+                  nome: (nome||"Venda Manual"),
+                  telefone: (telefone||""),
+                  cidade: "",
+                  origem: "Manual",
+                  empreendimento: "",
+                  tipo_imovel: "",
+                  faixa_valor: valorFinal,
+                  faixa_renda: "",
+                  corretor: corretor,
+                  observacoes: "Venda inserida manualmente pela tela Vendas por Corretor",
+                  etapa,
+                  possui_entrada: false,
+                  visitou: false,
+                  responde_rapido: false,
+                  prazo_compra: "",
+                  historico: [{id: Date.now(), tipo: "Cadastro", texto: "Venda manual inserida", data: hoje(), hora: agora()}],
+                  data_cadastro: hoje()
+                });
+
+                // Insere como novo lead para refletir nas tabelas/reports do funil
+                const novo = mkLead(pessoa, tel);
+                // Supabase só estará acessível se usuário estiver logado: usamos a mesma sb global
+                sb.from("leads").insert([novo]).then(({error})=>{
+                  if(error) alert("Erro ao inserir venda manual: " + error.message);
+                  else alert("Venda manual cadastrada com sucesso.");
+                  // Sem recarregar via realtime aqui (para evitar dependência), mas podemos forçar recarregamento:
+                  // O realtime do canal deve atualizar.
+                });
+              }}
+              style={{padding:"8px 12px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"white",cursor:"pointer",fontWeight:800,fontSize:12,whiteSpace:"nowrap"}}
+              >+ Adicionar Venda Manual</button>
+          </div>
         </div>
 
         <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:14}}>
