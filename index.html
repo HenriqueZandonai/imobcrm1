@@ -361,9 +361,20 @@ const Spinner=({msg="Carregando..."})=>(
 // ── LEAD FORM ──
 const LeadForm=({init={},onSave,onClose,saving})=>{
 const df={nome:"",telefone:"",cidade:"",origem:"",empreendimento:"",tipo_imovel:"casa",faixa_valor:"",faixa_renda:"",corretor:"",observacoes:"",etapa:"Lead Recebido",possui_entrada:false,visitou:false,responde_rapido:false,prazo_compra:"",ultimo_contato:hoje()};
-  const [f,setF]=useState({...df,...init});
+  const normalizeMultiString = (v) => {
+    const s = String(v || "").trim();
+    if (!s) return "";
+    // Aceita tanto string simples quanto compactada com separador " | "
+    const arr = s.split("|").map(x=>String(x).trim()).filter(Boolean);
+    if (arr.length <= 1) return s;
+    return arr.join(" | ");
+  };
+
+  const [f,setF]=useState({...df,...init,empreendimento: normalizeMultiString(init.empreendimento),tipo_imovel: normalizeMultiString(init.tipo_imovel)});
   const set=k=>v=>setF(p=>({...p,[k]:v}));
   const sc=calcScore(f); const t=getTemp(sc);
+  const arrEmp = String(f.empreendimento||"").split("|").map(s=>s.trim()).filter(Boolean);
+  const arrTipo = String(f.tipo_imovel||"").split("|").map(s=>s.trim()).filter(Boolean);
   return(
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
       <div style={{background:`${t.c}11`,border:`1px solid ${t.c}33`,borderRadius:10,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -375,8 +386,45 @@ const df={nome:"",telefone:"",cidade:"",origem:"",empreendimento:"",tipo_imovel:
         <InpF label="Telefone / WhatsApp *" value={f.telefone} onChange={set("telefone")}/>
         <SelF label="Cidade" value={f.cidade} onChange={set("cidade")} options={CIDADES}/>
         <SelF label="Origem do Lead *" value={f.origem} onChange={set("origem")} options={ORIGENS}/>
-        <SelF label="Empreendimento" value={f.empreendimento} onChange={set("empreendimento")} options={EMPS}/>
-        <SelF label="Tipo de Imóvel" value={f.tipo_imovel} onChange={set("tipo_imovel")} options={TIPOS}/>
+        {/* Multi-seleção (mantém as mesmas colunas do Supabase, gravando como string compactada) */}
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <label style={{fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase"}}>Empreendimento(s)</label>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {EMPS.map(emp=>{
+              const arr = (String(f.empreendimento||"").split(" | ").map(s=>s.trim()).filter(Boolean));
+              const checked = arr.includes(emp);
+              return (
+                <label key={emp} style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",userSelect:"none"}}>
+                  <input type="checkbox" checked={checked} onChange={()=>{
+                    const cur = new Set(arr);
+                    if(cur.has(emp)) cur.delete(emp); else cur.add(emp);
+                    set("empreendimento")([...cur].join(" | "));
+                  }} style={{width:14,height:14}} />
+                  <span style={{fontSize:11,color:checked?"#f1f5f9":"#94a3b8"}}>{emp}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <label style={{fontSize:9,fontWeight:700,color:"#64748b",textTransform:"uppercase"}}>Tipo de Imóvel(s)</label>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {TIPOS.map(tp=>{
+              const arr = (String(f.tipo_imovel||"").split(" | ").map(s=>s.trim()).filter(Boolean));
+              const checked = arr.includes(tp);
+              return (
+                <label key={tp} style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",userSelect:"none"}}>
+                  <input type="checkbox" checked={checked} onChange={()=>{
+                    const cur = new Set(arr);
+                    if(cur.has(tp)) cur.delete(tp); else cur.add(tp);
+                    set("tipo_imovel")([...cur].join(" | "));
+                  }} style={{width:14,height:14}} />
+                  <span style={{fontSize:11,color:checked?"#f1f5f9":"#94a3b8"}}>{tp}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
         <InpF label="Faixa de Valor (R$)" value={f.faixa_valor} onChange={set("faixa_valor")} type="number"/>
         <InpF label="Renda Bruta Mensal" value={f.faixa_renda} onChange={set("faixa_renda")} type="number" ph="Ex: 3500"/>
         <SelF label="Prazo de Compra" value={f.prazo_compra} onChange={set("prazo_compra")} options={["Imediato","1-3 meses","3-6 meses","6-12 meses","Mais de 1 ano"]}/>
@@ -616,7 +664,11 @@ const LeadsView=({leads,onNew,onView,onDelete})=>{
   const filtered=useMemo(()=>leads.filter(l=>{
     const mQ=!q||l.nome.toLowerCase().includes(q.toLowerCase())||l.telefone.includes(q)||(l.cidade||"").toLowerCase().includes(q.toLowerCase());
     const sc=calcScore(l); const tl=getTemp(sc).l;
-    return mQ&&(!fE||l.empreendimento===fE)&&(!fT||l.tipo_imovel===fT)&&(!fC||l.corretor===fC)&&(!fEt||l.etapa===fEt)&&(!fTp||tl===fTp);
+    const empArr = String(l.empreendimento||"").split(" | ").map(s=>s.trim()).filter(Boolean);
+    const tipoArr = String(l.tipo_imovel||"").split(" | ").map(s=>s.trim()).filter(Boolean);
+    const okEmp = !fE || empArr.includes(fE);
+    const okTipo = !fT || tipoArr.includes(fT);
+    return mQ&&okEmp&&okTipo&&(!fC||l.corretor===fC)&&(!fEt||l.etapa===fEt)&&(!fTp||tl===fTp);
   }),[leads,q,fE,fT,fC,fEt,fTp]);
 
   const fl=useMemo(()=>{
