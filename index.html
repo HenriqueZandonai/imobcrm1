@@ -1407,8 +1407,21 @@ function ImobCRM(){
       faixa_valor: data.faixa_valor === "" ? null : Number(data.faixa_valor)
     };
     const novo={...sanitizedData,data_cadastro:hoje(),historico:[{id:Date.now(),tipo:"Cadastro",texto:"Lead cadastrado",data:hoje(),hora:agora()}]};
-    const{error}=await sb.from("leads").insert([novo]);
-    if(error)alert("Erro ao salvar: "+error.message);
+
+    // Se a coluna `ultimo_contato` não existir no schema, faz fallback removendo apenas essa coluna.
+    const { error } = await sb.from("leads").insert([novo]);
+    if(error){
+      const msg=(error && error.message)||"";
+      const missUltimo = msg.includes("ultimo_contato") && msg.toLowerCase().includes("could not find");
+      if(missUltimo){
+        const { ultimo_contato, ...rest } = novo;
+        const { error: error2 } = await sb.from("leads").insert([{...rest}]);
+        if(error2) alert("Erro ao salvar: "+error2.message);
+      }else{
+        alert("Erro ao salvar: "+error.message);
+      }
+    }
+
     setSaving(false);setShowNew(false);
   };
 
@@ -1416,13 +1429,13 @@ function ImobCRM(){
     setSaving(true);
     const {id,...rest}=updated;
 
-    // Remove `ultimo_contato` do payload caso a coluna não exista no schema do Supabase.
-    // (Esse erro acontece quando o campo não está presente no banco.)
-    const { ultimo_contato, ...restSemUltimo } = rest;
+    // Mantém `ultimo_contato` editável.
+    // Para evitar erro quando a coluna não existe no schema cache do Supabase,
+    // removemos apenas quando a própria API indicar o problema.
 
-    const sanitizedRest = {
-      ...restSemUltimo,
-      faixa_valor: restSemUltimo.faixa_valor === "" ? null : (restSemUltimo.faixa_valor === null ? null : Number(restSemUltimo.faixa_valor))
+    const sanitizedRestBase = {
+      ...rest,
+      faixa_valor: rest.faixa_valor === "" ? null : (rest.faixa_valor === null ? null : Number(rest.faixa_valor))
     };
 
     // Se o ID vier da planilha, ele não existe no DB, então usamos INSERT
