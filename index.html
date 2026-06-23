@@ -1414,10 +1414,15 @@ function ImobCRM(){
 
   const updateLead=async updated=>{
     setSaving(true);
-    const{id,...rest}=updated;
+    const {id,...rest}=updated;
+
+    // Remove `ultimo_contato` do payload caso a coluna não exista no schema do Supabase.
+    // (Esse erro acontece quando o campo não está presente no banco.)
+    const { ultimo_contato, ...restSemUltimo } = rest;
+
     const sanitizedRest = {
-      ...rest,
-      faixa_valor: rest.faixa_valor === "" ? null : (rest.faixa_valor === null ? null : Number(rest.faixa_valor))
+      ...restSemUltimo,
+      faixa_valor: restSemUltimo.faixa_valor === "" ? null : (restSemUltimo.faixa_valor === null ? null : Number(restSemUltimo.faixa_valor))
     };
 
     // Se o ID vier da planilha, ele não existe no DB, então usamos INSERT
