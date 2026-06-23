@@ -397,9 +397,9 @@ const df={nome:"",telefone:"",cidade:"",origem:"",empreendimento:"",tipo_imovel:
       <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
         <button onClick={onClose} style={{padding:"9px 18px",borderRadius:10,border:"1px solid #334155",background:"transparent",color:"#94a3b8",cursor:"pointer",fontWeight:600,fontSize:12}}>Cancelar</button>
         <button onClick={()=>{if(!f.nome||!f.telefone){alert("Nome e telefone obrigatórios!");return;}
-          // Se o Supabase não tiver a coluna `ultimo_contato`, remover antes de salvar.
-          const { ultimo_contato, ...rest } = f;
-          onSave(rest);}} disabled={saving}
+          // Garante que o campo `ultimo_contato` seja salvo (quando existir no schema do Supabase).
+          // Mantém o valor como veio do input (DD/MM/AAAA).
+          onSave(f);
           style={{padding:"9px 22px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"white",cursor:saving?"wait":"pointer",fontWeight:700,fontSize:12,opacity:saving?0.7:1}}>
           {saving?"Salvando...":init.id?"Atualizar Lead":"Salvar Lead"}
         </button>
