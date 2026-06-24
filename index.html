@@ -1562,21 +1562,24 @@ const handleAddRes = async (nome) => {
       // Algumas bases podem ter o nome da tabela diferente (ex: residencias vs. residencia).
       // Tentamos primeiro `residencias` e, se falhar com "not found", tentamos `residencia`.
       const tryInsert = async (tableName) => {
-        const { data, error } = await sb.from(tableName).insert([{ nome }]).select();
-        return { data, error };
+        try {
+          console.log("[Unidades] tentando inserir residencial em table:", tableName);
+          const { data, error } = await sb.from(tableName).insert([{ nome }]).select();
+          if (error) console.error("[Unidades] erro insert em", tableName, error);
+          return { data, error };
+        } catch (e) {
+          console.error("[Unidades] exceção ao inserir em", tableName, e);
+          return { data: null, error: e };
+        }
       };
 
       let { data, error } = await tryInsert("residencias");
 
+      // Se falhar em `residencias`, não tentamos outras tabelas automaticamente.
+      // O schema do seu Supabase já indica que a tabela correta é `residencias` (plural).
+      // Tentativas automáticas (ex: `residencia`) geram o erro de schema cache que você reportou.
       if (error) {
-        // fallback opcional
-        const msg = (error && error.message) ? error.message.toLowerCase() : "";
-        const isNotFound = msg.includes("could not find the table") || msg.includes("does not exist") || msg.includes("not found");
-        if (isNotFound) {
-          const r2 = await tryInsert("residencia");
-          data = r2.data;
-          error = r2.error;
-        }
+        throw error;
       }
 
       if (error) throw error;
