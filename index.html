@@ -1218,6 +1218,18 @@ const UnidadesView = ({ leads, residencias, unidades, onAddRes, onDelRes, onUpdU
 
   const UnitForm = ({ unit, onClose }) => {
     const [f, setF] = useState(unit || { numero: "", status: "Disponível", preco: "", metragem: "", detalhes: "", lead_id: "" });
+
+    const handleSubmit = async () => {
+      try {
+        console.log("[Unidades] onUpdUni payload:", { ...f, residencia_id: resSel });
+        await onUpdUni({ ...f, residencia_id: resSel });
+        onClose();
+      } catch (e) {
+        console.error("[Unidades] erro ao salvar unidade:", e);
+        alert("Erro ao salvar unidade: " + (e?.message || e));
+      }
+    };
+
     return (
       <Modal title={unit?.id ? `Editar Unidade ${unit.numero}` : "Nova Unidade"} onClose={onClose} width={400}>
         <div style={{display:"flex", flexDirection:"column", gap: 12}}>
@@ -1232,7 +1244,7 @@ const UnidadesView = ({ leads, residencias, unidades, onAddRes, onDelRes, onUpdU
           )}
           <textarea placeholder="Características (ex: 3 quartos, sacada com churrasqueira...)" value={f.detalhes} onChange={e => setF({...f, detalhes: e.target.value})} 
             style={{background:"#1e293b", border:"1px solid #334155", borderRadius:10, padding:10, color:"#f1f5f9", fontSize:12, minHeight:80}} />
-          <button onClick={() => { onUpdUni({...f, residencia_id: resSel}); onClose(); }} 
+          <button onClick={handleSubmit} 
             style={{padding:12, borderRadius:10, border:"none", background:"linear-gradient(135deg,#6366f1,#8b5cf6)", color:"white", fontWeight:700, cursor:"pointer"}}>
             {unit?.id ? "Atualizar Unidade" : "Adicionar à Obra"}
           </button>
@@ -1320,6 +1332,7 @@ const UnidadesView = ({ leads, residencias, unidades, onAddRes, onDelRes, onUpdU
     </div>
   );
 };
+
 
 // ── LOGIN ──
 const Login=({onLogin})=>{
